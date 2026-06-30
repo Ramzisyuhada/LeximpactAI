@@ -65,9 +65,7 @@ class RuleEngine {
 
   static const List<String> level3CorrectSteps = [
     'Audit alasan efisiensi dan bukti kondisi perusahaan',
-    'Cek alternatif sebelum PHK seperti mutasi atau penyesuaian kerja',
     'Lakukan perundingan bipartit dengan pekerja atau serikat pekerja',
-    'Sampaikan pemberitahuan tertulis dan dasar hukum PHK',
     'Hitung dan bayarkan seluruh hak pekerja sesuai ketentuan',
   ];
 
@@ -145,33 +143,66 @@ class RuleEngine {
   }
 
   String compareChoices(
-    List<String> choices, {
-    String scenario = '',
-    List<String> lawTopics = const [],
-  }) {
-    if (choices.isEmpty) return '';
+  List<String> choices, {
+  String scenario = '',
+  List<String> lawTopics = const [],
+}) {
+  if (choices.isEmpty) return '';
 
-    var bestChoice = choices.first;
-    var bestScore = _scoreChoice(
-      bestChoice,
-      scenario: scenario,
-      lawTopics: lawTopics,
-    );
+  final context = _normalize('$scenario ${lawTopics.join(" ")}');
 
-    for (final choice in choices.skip(1)) {
-      final score = _scoreChoice(
-        choice,
-        scenario: scenario,
-        lawTopics: lawTopics,
-      );
-      if (score > bestScore) {
-        bestChoice = choice;
-        bestScore = score;
-      }
-    }
-
-    return bestChoice;
+  // =========================
+  // RULE 1 : TERIMA
+  // =========================
+  if (_containsAny(context, [
+    'memenuhi syarat',
+    'memenuhi kriteria',
+    'lulus seleksi',
+    'kompetensi sesuai',
+    'tidak ada pelanggaran',
+    'sesuai prosedur',
+    'layak diterima'
+  ])) {
+    return _findChoice(choices, 'terima');
   }
+
+  // =========================
+  // RULE 2 : TOLAK
+  // =========================
+  if (_containsAny(context, [
+    'melanggar',
+    'tidak sesuai',
+    'bertentangan',
+    'dokumen palsu',
+    'pemalsuan',
+    'fraud',
+    'tidak memenuhi syarat',
+  ])) {
+    return _findChoice(choices, 'tolak');
+  }
+
+  // =========================
+  // RULE 3 : REVISI
+  // =========================
+  if (_containsAny(context, [
+    'diskriminasi',
+    'usia',
+    'gender',
+    'ras',
+    'agama',
+    'prosedur rekrutmen',
+    'proses rekrutmen',
+    'kebijakan hr',
+    'perbaikan prosedur'
+  ])) {
+    return _findChoice(choices, 'revisi');
+  }
+
+  // =========================
+  // Fallback
+  // =========================
+  return choices.first;
+}
 
   GeneratedCase applyRules(GeneratedCase generatedCase, {bool stepCase = false}) {
     final options = stepCase ? level3CorrectSteps : generatedCase.options;
@@ -241,10 +272,21 @@ class RuleEngine {
     });
 
     if (context.contains('diskriminasi') || context.contains('usia')) {
-      if (normalizedChoice.contains('revisi')) score += 10;
+      // Randomer scoring untuk variety
+      if (normalizedChoice.contains('revisi')) score += 6; // turun dari 10
       if (normalizedChoice.contains('objektif')) score += 6;
-      if (normalizedChoice == 'terima') score += 1;
-      if (normalizedChoice == 'tolak') score -= 10;
+      if (normalizedChoice == 'terima') score += 4; // naik dari 1
+      if (normalizedChoice == 'tolak') score += 2; // naik dari -10
+    }
+
+    if (context.contains('memenuhi') || context.contains('sesuai') || context.contains('penuhi')) {
+      if (normalizedChoice == 'terima') score += 8;
+      if (normalizedChoice.contains('bayar')) score += 6;
+    }
+
+    if (context.contains('pelanggaran') || context.contains('tidak sesuai') || context.contains('melanggar')) {
+      if (normalizedChoice == 'tolak') score += 8;
+      if (normalizedChoice.contains('revisi')) score += 4;
     }
 
     if (context.contains('lembur') ||
@@ -281,4 +323,22 @@ class RuleEngine {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
+
+  bool _containsAny(String text, List<String> keywords) {
+  for (final keyword in keywords) {
+    if (text.contains(_normalize(keyword))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String _findChoice(List<String> choices, String keyword) {
+  for (final choice in choices) {
+    if (_normalize(choice).contains(keyword)) {
+      return choice;
+    }
+  }
+  return choices.first;
+}
 }

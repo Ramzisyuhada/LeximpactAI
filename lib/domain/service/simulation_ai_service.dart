@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:leximpactai/domain/model/generated_case.dart';
 import 'package:leximpactai/domain/service/rule_engine.dart';
 import 'package:leximpactai/domain/utils/generated_case_parser.dart';
@@ -12,7 +10,6 @@ class SimulationAIService {
   final rag = RagService();
   final ruleEngine = RuleEngine();
 
-  static const int _maxJsonRetryAttempts = 2;
   static final Map<String, GeneratedCase> _caseRegistry = {};
   static GeneratedCase? _lastGeneratedCase;
 
@@ -44,19 +41,10 @@ class SimulationAIService {
     final basePrompt = """
 Anda adalah ahli hukum ketenagakerjaan Indonesia.
 
-BATASAN WAJIB:
-- Keputusan terbaik SUDAH ditentukan sistem.
-- Status benar/salah SUDAH ditentukan sistem.
-- Jangan menentukan jawaban terbaik.
-- Jangan menentukan benar atau salah.
-- Jangan memberi skor.
-- Jangan menyarankan langkah sebagai hasil evaluasi benar/salah.
-
 Kasus:
 $scenario
 
-Keputusan terbaik SUDAH ditentukan sistem.
-Status jawaban user:
+Status:
 ${evaluation.status}
 
 Jawaban terbaik:
@@ -65,40 +53,51 @@ ${evaluation.correctAnswer}
 Jawaban user:
 ${evaluation.userAnswer}
 
-Topik hukum:
-${_formatList(stableCase.lawTopics)}
-
-Referensi hukum:
+Referensi:
 $contextBlock
 
-Tugas AI:
-- Jelaskan alasan hukum
-- Jelaskan pasal atau dasar hukum yang relevan dari referensi
-- Jelaskan risiko
-- Jelaskan dampak
-- Berikan rekomendasi
+Berikan jawaban SANGAT SINGKAT.
 
-Output HARUS JSON valid tanpa markdown dan tanpa teks tambahan:
-{
-  "reason": "",
-  "risk": [],
-  "impact": [],
-  "recommendation": []
-}
+Format:
+
+## Alasan
+Jelaskan maksimal 2 kalimat.
+
+## Dasar Hukum
+Sebutkan maksimal 1-2 pasal atau aturan jika ada.
+
+## Saran
+Berikan maksimal 2 poin singkat.
+
+Jangan memberi skor.
+Jangan mengulang kasus.
+Maksimal 120 kata.
 """;
-
-    return _generateJsonWithRetry(
-      basePrompt: basePrompt,
-      fallbackJson: _fallbackAnswerJson(evaluation),
-    );
+    final output = await mistral.generate(basePrompt, temperature: 0.2);
+    final aiResult = output.isNotEmpty ? output : _fallbackAnswerText(evaluation);
+    
+    // Prepend status header
+    final statusHeader = evaluation.isCorrect
+        ? '✅ JAWABAN BENAR\n\n'
+        : '❌ JAWABAN SALAH\n\n';
+    
+    return statusHeader + aiResult;
   }
 
   /// =========================
   /// 🔥 LEVEL 1 (FIXED)
   /// =========================
   Future<String> generateCase() async {
+    final caseTypes = [
+      'diskriminasi usia dalam rekrutmen (pilihan yang sesuai prosedur adalah Revisi)',
+      'pelamar yang memenuhi kriteria namun masih ditolak (pilihan yang sesuai adalah Terima)',
+      'prosedur rekrutmen yang melanggar hukum ketenagakerjaan (pilihan yang sesuai adalah Tolak)',
+    ];
+    
+    final randomType = caseTypes[DateTime.now().millisecond % caseTypes.length];
+    
     final prompt = """
-Buat 1 kasus HR tentang diskriminasi usia.
+Buat 1 kasus HR tentang rekrutmen: $randomType
 
 Jangan menentukan jawaban benar, jangan memberi evaluasi, dan jangan memberi skor.
 
@@ -106,12 +105,13 @@ Output HARUS JSON valid tanpa markdown:
 {
   "scenario": "Tulisan 2-3 kalimat",
   "options": ["Terima", "Tolak", "Revisi prosedur"],
-  "lawTopics": ["diskriminasi usia", "rekrutmen non-diskriminatif"]
+  "lawTopics": ["rekrutmen", "ketenagakerjaan"]
 }
 
 ATURAN:
 - Jangan ubah kata pilihan.
 - Gunakan bahasa Indonesia.
+- Scenario HARUS cocok dengan tipe kasus: $randomType
 """;
 
     final generatedCase = await _generateCaseFromAI(
@@ -299,19 +299,54 @@ Tugas AI:
 - Jelaskan risiko dan dampak
 - Berikan rekomendasi perbaikan
 
-Output HARUS JSON valid tanpa markdown dan tanpa teks tambahan:
-{
-  "reason": "",
-  "risk": [],
-  "impact": [],
-  "recommendation": []
-}
+Format jawaban:
+
+## Penjelasan Langkah Salah
+(penjelasan)
+
+## Langkah yang Dilewati
+(penjelasan)
+
+## Konsekuensi Hukum
+- (konsekuensi 1)
+- (konsekuensi 2)
+
+## Risiko
+- (risiko 1)
+- (risiko 2)
+
+## Rekomendasi Perbaikan
+- (rekomendasi 1)
+- (rekomendasi 2)
+
+Berikan jawaban SANGAT SINGKAT.
+
+Format:
+
+## Kesalahan
+Maksimal 2 kalimat.
+
+## Dasar Hukum
+Maksimal 1-2 aturan jika ada.
+
+## Saran
+Maksimal 2 poin.
+
+Jangan memberi skor.
+Jangan mengulang kasus.
+Maksimal 120 kata.
+
 """;
 
-    return _generateJsonWithRetry(
-      basePrompt: basePrompt,
-      fallbackJson: _fallbackStepJson(evaluation),
-    );
+    final output = await mistral.generate(basePrompt, temperature: 0.2);
+    final aiResult = output.isNotEmpty ? output : _fallbackStepText(evaluation);
+    
+    // Prepend status header
+    final statusHeader = evaluation.isCorrect
+        ? '✅ STRATEGI BENAR\n\n'
+        : '❌ STRATEGI SALAH\n\n';
+    
+    return statusHeader + aiResult;
   }
 
   /// Converts AI case output into a structured model.
@@ -331,129 +366,60 @@ Output HARUS JSON valid tanpa markdown dan tanpa teks tambahan:
     );
   }
 
-  Future<String> _generateJsonWithRetry({
-    required String basePrompt,
-    required Map<String, dynamic> fallbackJson,
-  }) async {
-    var prompt = basePrompt;
+  String _fallbackAnswerText(AnswerEvaluation evaluation) {
+    final statusEmoji = evaluation.isCorrect ? '✅ JAWABAN BENAR' : '❌ JAWABAN SALAH';
+    return """$statusEmoji
 
-    for (var attempt = 0; attempt <= _maxJsonRetryAttempts; attempt++) {
-      final output = await mistral.generate(prompt, temperature: 0.2);
-      final parsed = _parseAnalysisJson(output);
+## Alasan Hukum
 
-      if (parsed != null) {
-        return const JsonEncoder.withIndent('  ').convert(parsed);
-      }
+Rule engine menetapkan status ${evaluation.status}. Jawaban terbaik sistem adalah "${evaluation.correctAnswer}", sedangkan jawaban user adalah "${evaluation.userAnswer}".
 
-      if (attempt == _maxJsonRetryAttempts) break;
+## Risiko
 
-      prompt = """
-$basePrompt
+${evaluation.isCorrect ? '- Risiko hukum lebih rendah karena jawaban mengikuti keputusan terbaik yang ditetapkan sistem.' : '- Risiko sengketa ketenagakerjaan meningkat karena jawaban user berbeda dari keputusan terbaik sistem.'}
 
-PERBAIKAN DIPERLUKAN:
-Output sebelumnya bukan JSON valid sesuai schema.
-Tulis ulang hanya sebagai JSON valid tanpa markdown, tanpa code fence, dan tanpa teks tambahan.
+## Dampak
+
+${evaluation.isCorrect ? '- Keputusan lebih konsisten dengan prosedur HR dan perlindungan hak pekerja.' : '- Keputusan dapat berdampak pada kepatuhan perusahaan dan posisi pekerja yang terdampak.'}
+
+## Rekomendasi
+
+- Gunakan keputusan terbaik yang sudah ditetapkan sistem sebagai dasar tindakan.
+- Pastikan tindakan HR didukung dokumen, prosedur tertulis, dan rujukan hukum yang relevan.
 """;
-    }
-
-    return const JsonEncoder.withIndent('  ').convert(fallbackJson);
   }
 
-  Map<String, dynamic>? _parseAnalysisJson(String output) {
-    final jsonText = _extractJsonObject(output);
-    if (jsonText == null) return null;
-
-    try {
-      final decoded = jsonDecode(jsonText);
-      if (decoded is! Map) return null;
-      final json = Map<String, dynamic>.from(decoded);
-      final result = {
-        'reason': _jsonString(json, const ['reason', 'alasan']),
-        'risk': _jsonStringList(json, const ['risk', 'risiko']),
-        'impact': _jsonStringList(json, const ['impact', 'dampak']),
-        'recommendation': _jsonStringList(
-          json,
-          const ['recommendation', 'recommendations', 'rekomendasi'],
-        ),
-      };
-
-      final hasContent = (result['reason'] as String).isNotEmpty ||
-          (result['risk'] as List<String>).isNotEmpty ||
-          (result['impact'] as List<String>).isNotEmpty ||
-          (result['recommendation'] as List<String>).isNotEmpty;
-
-      return hasContent ? result : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? _extractJsonObject(String output) {
-    final clean = output
-        .replaceAll(RegExp(r'```json', caseSensitive: false), '')
-        .replaceAll('```', '')
-        .trim();
-    final start = clean.indexOf('{');
-    final end = clean.lastIndexOf('}');
-
-    if (start == -1 || end == -1 || end <= start) return null;
-    return clean.substring(start, end + 1);
-  }
-
-  Map<String, dynamic> _fallbackAnswerJson(AnswerEvaluation evaluation) {
-    return {
-      'reason':
-          'Rule engine menetapkan status ${evaluation.status}. Jawaban terbaik sistem adalah "${evaluation.correctAnswer}", sedangkan jawaban user adalah "${evaluation.userAnswer}".',
-      'risk': evaluation.isCorrect
-          ? [
-              'Risiko hukum lebih rendah karena jawaban mengikuti keputusan terbaik yang ditetapkan sistem.',
-            ]
-          : [
-              'Risiko sengketa ketenagakerjaan meningkat karena jawaban user berbeda dari keputusan terbaik sistem.',
-            ],
-      'impact': evaluation.isCorrect
-          ? [
-              'Keputusan lebih konsisten dengan prosedur HR dan perlindungan hak pekerja.',
-            ]
-          : [
-              'Keputusan dapat berdampak pada kepatuhan perusahaan dan posisi pekerja yang terdampak.',
-            ],
-      'recommendation': [
-        'Gunakan keputusan terbaik yang sudah ditetapkan sistem sebagai dasar tindakan.',
-        'Pastikan tindakan HR didukung dokumen, prosedur tertulis, dan rujukan hukum yang relevan.',
-      ],
-    };
-  }
-
-  Map<String, dynamic> _fallbackStepJson(StepEvaluation evaluation) {
+  String _fallbackStepText(StepEvaluation evaluation) {
+    final statusEmoji = evaluation.isCorrect ? '✅ STRATEGI BENAR' : '❌ STRATEGI SALAH';
     final problematicSteps = [
       ...evaluation.wrongSteps,
       ...evaluation.misorderedSteps,
     ];
 
-    return {
-      'reason': evaluation.isCorrect
-          ? 'Rule engine menetapkan urutan strategi user BENAR karena seluruh langkah sesuai urutan sistem.'
-          : 'Rule engine menetapkan urutan strategi user SALAH karena ada langkah yang salah, keliru urutan, atau dilewati.',
-      'risk': problematicSteps.isEmpty
-          ? [
-              'Risiko utama berasal dari langkah yang dilewati atau dokumentasi PHK yang tidak lengkap.',
-            ]
-          : [
-              'Langkah bermasalah: ${problematicSteps.join(', ')}.',
-            ],
-      'impact': evaluation.missedSteps.isEmpty
-          ? [
-              'Urutan yang tepat membantu menjaga kepatuhan prosedur PHK.',
-            ]
-          : [
-              'Langkah yang dilewati: ${evaluation.missedSteps.join(', ')}.',
-            ],
-      'recommendation': [
-        'Ikuti urutan langkah benar yang disimpan sistem.',
-        'Pastikan perundingan, pemberitahuan, dan pembayaran hak pekerja terdokumentasi.',
-      ],
-    };
+    return """$statusEmoji
+
+## Penjelasan Langkah Salah
+
+${evaluation.isCorrect ? 'Semua langkah strategi user sudah benar sesuai urutan sistem.' : 'Ada langkah yang tidak tepat atau urutan yang keliru dalam strategi user.'}
+
+## Langkah yang Dilewati
+
+${evaluation.missedSteps.isEmpty ? '(Tidak ada langkah yang dilewati)' : evaluation.missedSteps.map((s) => '- $s').join('\n')}
+
+## Konsekuensi Hukum
+
+- Langkah yang tidak tepat dapat berakibat pada ketidakpatuhan prosedur PHK yang ditetapkan UU.
+- Pekerja dapat mengajukan keberatan jika prosedur tidak sesuai ketentuan.
+
+## Risiko
+
+${problematicSteps.isEmpty ? '- Risiko utama berasal dari langkah yang dilewati atau dokumentasi PHK yang tidak lengkap.' : '- Langkah bermasalah: ${problematicSteps.join(", ")}'}
+
+## Rekomendasi Perbaikan
+
+- Ikuti urutan langkah benar yang disimpan sistem.
+- Pastikan perundingan, pemberitahuan, dan pembayaran hak pekerja terdokumentasi.
+""";
   }
 
   GeneratedCase? _lookupCase(String scenario) {
@@ -600,51 +566,6 @@ Tulis ulang hanya sebagai JSON valid tanpa markdown, tanpa code fence, dan tanpa
     }
 
     return result;
-  }
-
-  String _jsonString(Map<String, dynamic> json, List<String> keys) {
-    final value = _jsonValue(json, keys);
-    if (value == null) return '';
-    if (value is List) {
-      return value.map((item) => item.toString()).join(' ').trim();
-    }
-    return value.toString().trim();
-  }
-
-  List<String> _jsonStringList(Map<String, dynamic> json, List<String> keys) {
-    final value = _jsonValue(json, keys);
-    if (value == null) return const [];
-
-    if (value is List) {
-      return value
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-    }
-
-    return value
-        .toString()
-        .split(RegExp(r'[;\n]'))
-        .map((item) => item.replaceFirst(RegExp(r'^[-*\d.)\s]+'), '').trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
-  }
-
-  dynamic _jsonValue(Map<String, dynamic> json, List<String> keys) {
-    for (final key in keys) {
-      if (json.containsKey(key)) return json[key];
-    }
-
-    final lowered = {
-      for (final entry in json.entries) entry.key.toLowerCase(): entry.value,
-    };
-
-    for (final key in keys) {
-      final value = lowered[key.toLowerCase()];
-      if (value != null) return value;
-    }
-
-    return null;
   }
 
   String _normalizeKey(String value) {

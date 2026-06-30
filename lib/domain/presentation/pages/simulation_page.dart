@@ -104,17 +104,24 @@ class _SimulationPageState extends State<SimulationPage> {
               _buildScenarioCard(),
               const SizedBox(height: 24),
 
-              /// 🎮 CONTENT
-              if (!isLoading)
-                level == 3
-                    ? _buildReorderableSteps()
-                    : Column(
-                        children: (simCase?.options ?? [])
-                            .map((e) => _buildOption(e))
-                            .toList(),
-                      ),
+              /// 🎮 CONTENT (SCROLLABLE)
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: isLoading
+                      ? const SizedBox.shrink()
+                      : (level == 3
+                          ? _buildReorderableSteps()
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: (simCase?.options ?? [])
+                                  .map((e) => _buildOption(e))
+                                  .toList(),
+                            )),
+                ),
+              ),
 
-              const Spacer(),
+              const SizedBox(height: 16),
               _buildNextButton(),
             ],
           ),
@@ -245,49 +252,135 @@ class _SimulationPageState extends State<SimulationPage> {
   /// 🎮 DRAG GAME
   Widget _buildReorderableSteps() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           "Susun strategi terbaik 🔥",
-          style: GoogleFonts.poppins(color: Colors.deepOrange),
+          style: GoogleFonts.poppins(
+            color: Colors.deepOrange,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        const SizedBox(height: 10),
-        ReorderableListView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: steps
-              .map((e) => Container(
-                    key: ValueKey(e),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
+        const SizedBox(height: 12),
+        ...steps.asMap().entries.map((entry) {
+          final index = entry.key;
+          final step = entry.value;
+          return GestureDetector(
+            onLongPress: () {
+              // Visual feedback untuk drag
+              HapticFeedback.mediumImpact();
+            },
+            child: Draggable<int>(
+              data: index,
+              feedback: Material(
+                child: Container(
+                  width: 280,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.drag_handle,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          step,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              child: DragTarget<int>(
+                onAcceptWithDetails: (details) {
+                  setState(() {
+                    final fromIndex = details.data;
+                    if (fromIndex != index) {
+                      final item = steps.removeAt(fromIndex);
+                      steps.insert(index, item);
+                    }
+                  });
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
+                      color: candidateData.isNotEmpty
+                          ? const Color(0xFFE9EFFF)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: candidateData.isNotEmpty
+                            ? const Color(0xFF6366F1)
+                            : AppColors.border,
+                        width: candidateData.isNotEmpty ? 2 : 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.drag_handle,
-                            color: AppColors.primary),
-                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.drag_handle,
+                          color: candidateData.isNotEmpty
+                              ? const Color(0xFF6366F1)
+                              : AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            e,
-                            style:
-                                const TextStyle(color: AppColors.text),
+                            step,
+                            style: TextStyle(
+                              color: AppColors.text,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  ))
-              .toList(),
-          onReorder: (oldIndex, newIndex) {
-            setState(() {
-              if (newIndex > oldIndex) newIndex--;
-              final item = steps.removeAt(oldIndex);
-              steps.insert(newIndex, item);
-            });
-          },
-        ),
+                  );
+                },
+              ),
+            ),
+          );
+        }).toList(),
       ],
     );
   }
