@@ -13,6 +13,12 @@ class SimulationAIService {
   static final Map<String, GeneratedCase> _caseRegistry = {};
   static GeneratedCase? _lastGeneratedCase;
 
+  /// Batas jumlah kasus yang disimpan di registry statis. Tanpa batas ini
+  /// registry akan terus tumbuh selama app hidup (tidak pernah dibersihkan)
+  /// dan berpotensi jadi memory leak lambat di aplikasi mobile yang
+  /// dipakai lama. Saat melebihi batas, entri paling lama dihapus.
+  static const int _maxCaseRegistrySize = 50;
+
   /// =========================
   /// 🔥 ANALYZE LEVEL 1 & 2
   /// =========================
@@ -75,12 +81,16 @@ Maksimal 120 kata.
 """;
     final output = await mistral.generate(basePrompt, temperature: 0.2);
     final aiResult = output.isNotEmpty ? output : _fallbackAnswerText(evaluation);
-    
-    // Prepend status header
+
+    // Prepend status header. CATATAN: fallback text (_fallbackAnswerText)
+    // TIDAK boleh menaruh emoji status sendiri di dalamnya, karena header
+    // ini akan selalu ditambahkan di sini terlepas dari sumber aiResult
+    // (mistral atau fallback) — kalau fallback juga menaruh emoji sendiri,
+    // hasilnya emoji status akan muncul dua kali.
     final statusHeader = evaluation.isCorrect
         ? '✅ JAWABAN BENAR\n\n'
         : '❌ JAWABAN SALAH\n\n';
-    
+
     return statusHeader + aiResult;
   }
 
@@ -258,6 +268,13 @@ ATURAN:
     );
     final contextBlock = _contextBlock(ragResult);
 
+    // CATATAN: sebelumnya di sini ada DUA blok instruksi format sekaligus
+    // ("Format jawaban:" versi panjang dengan 5 heading, lalu "Format:"
+    // versi pendek dengan 3 heading tepat setelahnya) yang saling
+    // bertentangan — model dikasih dua spesifikasi format berbeda dalam
+    // satu prompt, membuat hasil AI tidak konsisten. Sekarang hanya ada
+    // satu format (versi pendek), selaras dengan format di `analyze()`
+    // dan dengan parser di AIFeedbackPage.
     final basePrompt = """
 Anda adalah ahli hukum ketenagakerjaan Indonesia.
 
@@ -293,31 +310,9 @@ Referensi hukum:
 $contextBlock
 
 Tugas AI:
-- Jelaskan langkah yang salah
-- Jelaskan langkah yang dilewati
-- Jelaskan konsekuensi hukum
-- Jelaskan risiko dan dampak
-- Berikan rekomendasi perbaikan
-
-Format jawaban:
-
-## Penjelasan Langkah Salah
-(penjelasan)
-
-## Langkah yang Dilewati
-(penjelasan)
-
-## Konsekuensi Hukum
-- (konsekuensi 1)
-- (konsekuensi 2)
-
-## Risiko
-- (risiko 1)
-- (risiko 2)
-
-## Rekomendasi Perbaikan
-- (rekomendasi 1)
-- (rekomendasi 2)
+- Jelaskan langkah yang salah dan/atau dilewati
+- Jelaskan konsekuensi hukum dan risikonya
+- Berikan rekomendasi perbaikan singkat
 
 Berikan jawaban SANGAT SINGKAT.
 
@@ -335,17 +330,17 @@ Maksimal 2 poin.
 Jangan memberi skor.
 Jangan mengulang kasus.
 Maksimal 120 kata.
-
 """;
 
     final output = await mistral.generate(basePrompt, temperature: 0.2);
     final aiResult = output.isNotEmpty ? output : _fallbackStepText(evaluation);
-    
-    // Prepend status header
+
+    // Prepend status header (lihat catatan yang sama di `analyze()`
+    // soal kenapa fallback text tidak boleh menaruh emoji status sendiri).
     final statusHeader = evaluation.isCorrect
         ? '✅ STRATEGI BENAR\n\n'
         : '❌ STRATEGI SALAH\n\n';
-    
+
     return statusHeader + aiResult;
   }
 
@@ -366,56 +361,58 @@ Maksimal 120 kata.
     );
   }
 
+  /// Fallback text untuk `analyze()` ketika mistral tidak mengembalikan
+  /// output. Heading DISELARASKAN dengan format prompt asli (## Alasan /
+  /// ## Dasar Hukum / ## Saran) supaya parser di AIFeedbackPage bisa
+  /// membaca hasil fallback dengan cara yang sama seperti hasil AI asli.
+  /// Emoji status TIDAK ditaruh di sini karena sudah ditambahkan oleh
+  /// caller (`analyze()`), lihat catatan di sana.
   String _fallbackAnswerText(AnswerEvaluation evaluation) {
-    final statusEmoji = evaluation.isCorrect ? '✅ JAWABAN BENAR' : '❌ JAWABAN SALAH';
-    return """$statusEmoji
-
-## Alasan Hukum
+    return """## Alasan
 
 Rule engine menetapkan status ${evaluation.status}. Jawaban terbaik sistem adalah "${evaluation.correctAnswer}", sedangkan jawaban user adalah "${evaluation.userAnswer}".
 
-## Risiko
+## Dasar Hukum
 
-${evaluation.isCorrect ? '- Risiko hukum lebih rendah karena jawaban mengikuti keputusan terbaik yang ditetapkan sistem.' : '- Risiko sengketa ketenagakerjaan meningkat karena jawaban user berbeda dari keputusan terbaik sistem.'}
+Ketentuan ketenagakerjaan yang relevan dengan kasus ini menjadi dasar penentuan jawaban terbaik di atas.
 
-## Dampak
-
-${evaluation.isCorrect ? '- Keputusan lebih konsisten dengan prosedur HR dan perlindungan hak pekerja.' : '- Keputusan dapat berdampak pada kepatuhan perusahaan dan posisi pekerja yang terdampak.'}
-
-## Rekomendasi
+## Saran
 
 - Gunakan keputusan terbaik yang sudah ditetapkan sistem sebagai dasar tindakan.
 - Pastikan tindakan HR didukung dokumen, prosedur tertulis, dan rujukan hukum yang relevan.
 """;
   }
 
+  /// Fallback text untuk `analyzeLevel3()`. Sama seperti
+  /// [_fallbackAnswerText]: heading diselaraskan dengan format prompt
+  /// (## Kesalahan / ## Dasar Hukum / ## Saran) dan tidak menaruh emoji
+  /// status sendiri.
   String _fallbackStepText(StepEvaluation evaluation) {
-    final statusEmoji = evaluation.isCorrect ? '✅ STRATEGI BENAR' : '❌ STRATEGI SALAH';
     final problematicSteps = [
       ...evaluation.wrongSteps,
       ...evaluation.misorderedSteps,
     ];
 
-    return """$statusEmoji
+    final kesalahan = evaluation.isCorrect
+        ? 'Semua langkah strategi user sudah benar sesuai urutan sistem.'
+        : 'Ada langkah yang tidak tepat, urutan yang keliru, dan/atau langkah yang dilewati dibandingkan urutan yang ditetapkan sistem.';
 
-## Penjelasan Langkah Salah
+    final detailMasalah = <String>[
+      if (evaluation.missedSteps.isNotEmpty)
+        'Langkah yang dilewati: ${evaluation.missedSteps.join(", ")}.',
+      if (problematicSteps.isNotEmpty)
+        'Langkah bermasalah: ${problematicSteps.join(", ")}.',
+    ].join(' ');
 
-${evaluation.isCorrect ? 'Semua langkah strategi user sudah benar sesuai urutan sistem.' : 'Ada langkah yang tidak tepat atau urutan yang keliru dalam strategi user.'}
+    return """## Kesalahan
 
-## Langkah yang Dilewati
+$kesalahan${detailMasalah.isEmpty ? '' : ' $detailMasalah'}
 
-${evaluation.missedSteps.isEmpty ? '(Tidak ada langkah yang dilewati)' : evaluation.missedSteps.map((s) => '- $s').join('\n')}
+## Dasar Hukum
 
-## Konsekuensi Hukum
+Prosedur PHK karena efisiensi wajib melalui audit alasan, perundingan bipartit, dan pemenuhan hak pekerja sesuai ketentuan ketenagakerjaan yang berlaku.
 
-- Langkah yang tidak tepat dapat berakibat pada ketidakpatuhan prosedur PHK yang ditetapkan UU.
-- Pekerja dapat mengajukan keberatan jika prosedur tidak sesuai ketentuan.
-
-## Risiko
-
-${problematicSteps.isEmpty ? '- Risiko utama berasal dari langkah yang dilewati atau dokumentasi PHK yang tidak lengkap.' : '- Langkah bermasalah: ${problematicSteps.join(", ")}'}
-
-## Rekomendasi Perbaikan
+## Saran
 
 - Ikuti urutan langkah benar yang disimpan sistem.
 - Pastikan perundingan, pemberitahuan, dan pembayaran hak pekerja terdokumentasi.
@@ -434,6 +431,11 @@ ${problematicSteps.isEmpty ? '- Risiko utama berasal dari langkah yang dilewati 
     final key = _normalizeKey(generatedCase.scenario);
     if (key.isNotEmpty) {
       _caseRegistry[key] = generatedCase;
+      // Batasi ukuran registry (lihat _maxCaseRegistrySize) supaya tidak
+      // tumbuh tanpa batas selama app hidup.
+      if (_caseRegistry.length > _maxCaseRegistrySize) {
+        _caseRegistry.remove(_caseRegistry.keys.first);
+      }
     }
     _lastGeneratedCase = generatedCase;
   }

@@ -142,69 +142,85 @@ class RuleEngine {
     );
   }
 
+  /// Menentukan pilihan "terbaik" berdasarkan konteks (scenario + lawTopics).
+  ///
+  /// RULE 1-3 menutupi kosakata kasus rekrutmen (Level 1: diskriminasi,
+  /// dokumen palsu, dll). Untuk konteks lain (Level 2: lembur/upah/
+  /// keselamatan, Level 3: PHK/efisiensi) tidak ada satupun keyword di
+  /// RULE 1-3 yang relevan, sehingga sebelumnya method ini selalu jatuh
+  /// ke `choices.first` — jawaban "benar" jadi arbitrer, selalu opsi
+  /// pertama apa pun isi kasusnya. Sekarang untuk konteks di luar RULE
+  /// 1-3 dipakai `_scoreChoice` (skema keyword-weighted yang sudah ada
+  /// tapi sebelumnya tidak pernah dipanggil) untuk memilih opsi yang
+  /// paling relevan dengan isi kasus.
   String compareChoices(
-  List<String> choices, {
-  String scenario = '',
-  List<String> lawTopics = const [],
-}) {
-  if (choices.isEmpty) return '';
+    List<String> choices, {
+    String scenario = '',
+    List<String> lawTopics = const [],
+  }) {
+    if (choices.isEmpty) return '';
 
-  final context = _normalize('$scenario ${lawTopics.join(" ")}');
+    final context = _normalize('$scenario ${lawTopics.join(" ")}');
 
-  // =========================
-  // RULE 1 : TERIMA
-  // =========================
-  if (_containsAny(context, [
-    'memenuhi syarat',
-    'memenuhi kriteria',
-    'lulus seleksi',
-    'kompetensi sesuai',
-    'tidak ada pelanggaran',
-    'sesuai prosedur',
-    'layak diterima'
-  ])) {
-    return _findChoice(choices, 'terima');
+    // =========================
+    // RULE 1 : TERIMA
+    // =========================
+    if (_containsAny(context, [
+      'memenuhi syarat',
+      'memenuhi kriteria',
+      'lulus seleksi',
+      'kompetensi sesuai',
+      'tidak ada pelanggaran',
+      'sesuai prosedur',
+      'layak diterima'
+    ])) {
+      return _findChoice(choices, 'terima');
+    }
+
+    // =========================
+    // RULE 2 : TOLAK
+    // =========================
+    if (_containsAny(context, [
+      'melanggar',
+      'tidak sesuai',
+      'bertentangan',
+      'dokumen palsu',
+      'pemalsuan',
+      'fraud',
+      'tidak memenuhi syarat',
+    ])) {
+      return _findChoice(choices, 'tolak');
+    }
+
+    // =========================
+    // RULE 3 : REVISI
+    // =========================
+    if (_containsAny(context, [
+      'diskriminasi',
+      'usia',
+      'gender',
+      'ras',
+      'agama',
+      'prosedur rekrutmen',
+      'proses rekrutmen',
+      'kebijakan hr',
+      'perbaikan prosedur'
+    ])) {
+      return _findChoice(choices, 'revisi');
+    }
+
+    // =========================
+    // RULE 4 : KONTEKS LAIN (fallback berbasis skor)
+    // =========================
+    return _bestScoringChoice(
+      choices,
+      scenario: scenario,
+      lawTopics: lawTopics,
+    );
   }
 
-  // =========================
-  // RULE 2 : TOLAK
-  // =========================
-  if (_containsAny(context, [
-    'melanggar',
-    'tidak sesuai',
-    'bertentangan',
-    'dokumen palsu',
-    'pemalsuan',
-    'fraud',
-    'tidak memenuhi syarat',
-  ])) {
-    return _findChoice(choices, 'tolak');
-  }
-
-  // =========================
-  // RULE 3 : REVISI
-  // =========================
-  if (_containsAny(context, [
-    'diskriminasi',
-    'usia',
-    'gender',
-    'ras',
-    'agama',
-    'prosedur rekrutmen',
-    'proses rekrutmen',
-    'kebijakan hr',
-    'perbaikan prosedur'
-  ])) {
-    return _findChoice(choices, 'revisi');
-  }
-
-  // =========================
-  // Fallback
-  // =========================
-  return choices.first;
-}
-
-  GeneratedCase applyRules(GeneratedCase generatedCase, {bool stepCase = false}) {
+  GeneratedCase applyRules(GeneratedCase generatedCase,
+      {bool stepCase = false}) {
     final options = stepCase ? level3CorrectSteps : generatedCase.options;
     final correctAnswer = stepCase
         ? options.join(' -> ')
@@ -218,6 +234,35 @@ class RuleEngine {
       options: options,
       correctAnswer: correctAnswer,
     );
+  }
+
+  /// Memilih choice dengan skor tertinggi dari [_scoreChoice].
+  /// Dipakai sebagai fallback RULE 4 di [compareChoices].
+  String _bestScoringChoice(
+    List<String> choices, {
+    required String scenario,
+    required List<String> lawTopics,
+  }) {
+    var bestChoice = choices.first;
+    var bestScore = _scoreChoice(
+      bestChoice,
+      scenario: scenario,
+      lawTopics: lawTopics,
+    );
+
+    for (final choice in choices.skip(1)) {
+      final score = _scoreChoice(
+        choice,
+        scenario: scenario,
+        lawTopics: lawTopics,
+      );
+      if (score > bestScore) {
+        bestScore = score;
+        bestChoice = choice;
+      }
+    }
+
+    return bestChoice;
   }
 
   int _scoreChoice(
@@ -272,19 +317,22 @@ class RuleEngine {
     });
 
     if (context.contains('diskriminasi') || context.contains('usia')) {
-      // Randomer scoring untuk variety
-      if (normalizedChoice.contains('revisi')) score += 6; // turun dari 10
+      if (normalizedChoice.contains('revisi')) score += 6;
       if (normalizedChoice.contains('objektif')) score += 6;
-      if (normalizedChoice == 'terima') score += 4; // naik dari 1
-      if (normalizedChoice == 'tolak') score += 2; // naik dari -10
+      if (normalizedChoice == 'terima') score += 4;
+      if (normalizedChoice == 'tolak') score += 2;
     }
 
-    if (context.contains('memenuhi') || context.contains('sesuai') || context.contains('penuhi')) {
+    if (context.contains('memenuhi') ||
+        context.contains('sesuai') ||
+        context.contains('penuhi')) {
       if (normalizedChoice == 'terima') score += 8;
       if (normalizedChoice.contains('bayar')) score += 6;
     }
 
-    if (context.contains('pelanggaran') || context.contains('tidak sesuai') || context.contains('melanggar')) {
+    if (context.contains('pelanggaran') ||
+        context.contains('tidak sesuai') ||
+        context.contains('melanggar')) {
       if (normalizedChoice == 'tolak') score += 8;
       if (normalizedChoice.contains('revisi')) score += 4;
     }
@@ -325,20 +373,20 @@ class RuleEngine {
   }
 
   bool _containsAny(String text, List<String> keywords) {
-  for (final keyword in keywords) {
-    if (text.contains(_normalize(keyword))) {
-      return true;
+    for (final keyword in keywords) {
+      if (text.contains(_normalize(keyword))) {
+        return true;
+      }
     }
+    return false;
   }
-  return false;
-}
 
-String _findChoice(List<String> choices, String keyword) {
-  for (final choice in choices) {
-    if (_normalize(choice).contains(keyword)) {
-      return choice;
+  String _findChoice(List<String> choices, String keyword) {
+    for (final choice in choices) {
+      if (_normalize(choice).contains(keyword)) {
+        return choice;
+      }
     }
+    return choices.first;
   }
-  return choices.first;
-}
 }

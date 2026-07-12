@@ -15,12 +15,7 @@ class AIFeedbackPage extends StatelessWidget {
     required this.answer,
     required this.aiResult,
   });
-// String extractBestAnswer(String text) {
-//   final regex = RegExp(r"Jawaban Terbaik:\s*(.*)");
 
-//   final match = regex.firstMatch(text);
-//   return match != null ? match.group(1)!.trim() : "-";
-// }
   /// 🔥 LIST → PARAGRAF
   String listToParagraph(List<String> items) {
     if (items.isEmpty) return "";
@@ -33,6 +28,13 @@ class AIFeedbackPage extends StatelessWidget {
   }
 
   /// 🔥 PARSER FINAL
+  ///
+  /// Prompt AI di SimulationAIService selalu menghasilkan heading Markdown
+  /// "## Alasan" / "## Kesalahan" (tergantung level), "## Dasar Hukum",
+  /// dan "## Saran" — bukan "Risiko:"/"Dampak:"/"Rekomendasi:" seperti
+  /// yang dicari versi sebelumnya. Key di sini diselaraskan dengan heading
+  /// asli tersebut (dengan alias "Alasan"/"Kesalahan" karena dua level
+  /// pakai istilah berbeda untuk section yang sama).
   Map<String, List<String>> parseAIResult(String text) {
     final jsonResult = _parseJsonAIResult(text);
     if (jsonResult != null) return jsonResult;
@@ -40,9 +42,9 @@ class AIFeedbackPage extends StatelessWidget {
     final clean = text.replaceAll("**", "");
 
     return {
-      "risiko": _extractList(clean, ["Risiko", "Risiko Hukum"]),
-      "dampak": _extractList(clean, ["Dampak", "Dampak Sosial"]),
-      "rekomendasi": _extractList(clean, ["Rekomendasi"]),
+      "alasan": _extractList(clean, ["Alasan", "Kesalahan"]),
+      "dasarHukum": _extractList(clean, ["Dasar Hukum"]),
+      "saran": _extractList(clean, ["Saran"]),
     };
   }
 
@@ -56,12 +58,12 @@ class AIFeedbackPage extends StatelessWidget {
 
       final json = Map<String, dynamic>.from(decoded);
       return {
-        "risiko": _jsonList(json, const ["risk", "risiko"]),
-        "dampak": _jsonList(json, const ["impact", "dampak"]),
-        "rekomendasi": _jsonList(
+        "alasan": _jsonList(json, const ["reason", "alasan", "kesalahan"]),
+        "dasarHukum": _jsonList(
           json,
-          const ["recommendation", "recommendations", "rekomendasi"],
+          const ["legal_basis", "dasar_hukum", "dasarhukum"],
         ),
+        "saran": _jsonList(json, const ["suggestion", "suggestions", "saran"]),
       };
     } catch (_) {
       return null;
@@ -107,29 +109,38 @@ class AIFeedbackPage extends StatelessWidget {
   }
 
   /// 🔥 EXTRACT LIST CLEAN
+  ///
+  /// Versi sebelumnya memakai regex yang mengasumsikan heading berformat
+  /// "Key:" (diakhiri titik dua). Tapi output AI sebenarnya berformat
+  /// heading Markdown "## Key" (tanpa titik dua), sehingga regex lama
+  /// nyaris tidak pernah cocok, dan begitu cocok pun lookahead-nya (yang
+  /// menunggu heading lain berakhiran ":") tidak pernah ketemu sampai
+  /// akhir teks — akibatnya satu section "menelan" seluruh sisa teks.
+  ///
+  /// Di sini heading dicocokkan sebagai baris "## <key>" dan section
+  /// berhenti tepat di heading "##" berikutnya, atau di akhir teks.
   List<String> _extractList(String text, List<String> keys) {
-    for (var key in keys) {
+    for (final key in keys) {
       final regex = RegExp(
-        "$key[:\\s]*([\\s\\S]*?)(?=\\n[A-Z][a-zA-Z ]+:|\\Z)",
+        r'##\s*' + RegExp.escape(key) + r'\s*:?[ \t]*\n([\s\S]*?)(?=\n##\s|$)',
         caseSensitive: false,
       );
 
       final match = regex.firstMatch(text);
+      if (match == null) continue;
 
-      if (match != null) {
-        String section = match.group(1)!;
+      final section = match.group(1)!;
 
-        final lines = section
-            .split('\n')
-            .map((e) => e.trim())
-            .map((e) => e.replaceAll(RegExp(r'^[-•\d.]+'), ''))
-            .map((e) => e.replaceAll(RegExp(r'\s+'), ' '))
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+      final lines = section
+          .split('\n')
+          .map((e) => e.trim())
+          .map((e) => e.replaceAll(RegExp(r'^[-•\d.]+\s*'), ''))
+          .map((e) => e.replaceAll(RegExp(r'\s+'), ' '))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
-        return lines;
-      }
+      if (lines.isNotEmpty) return lines;
     }
     return [];
   }
@@ -155,27 +166,27 @@ class AIFeedbackPage extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: [
-                    /// ⚖️ RISIKO → PARAGRAF
-                    if (parsed["risiko"]!.isNotEmpty)
+                    /// 📖 ALASAN / KESALAHAN → PARAGRAF
+                    if (parsed["alasan"]!.isNotEmpty)
                       _buildAnalysisCard(
-                        "⚖️ Risiko Hukum",
-                        listToParagraph([...parsed["risiko"]!]),
+                        "📖 Penjelasan",
+                        listToParagraph([...parsed["alasan"]!]),
                         Colors.redAccent,
                       ),
 
-                    /// 📊 DAMPAK → PARAGRAF
-                    if (parsed["dampak"]!.isNotEmpty)
+                    /// 📜 DASAR HUKUM → PARAGRAF
+                    if (parsed["dasarHukum"]!.isNotEmpty)
                       _buildAnalysisCard(
-                        "📊 Dampak Sosial",
-                        listToParagraph([...parsed["dampak"]!]),
+                        "📜 Dasar Hukum",
+                        listToParagraph([...parsed["dasarHukum"]!]),
                         Colors.orangeAccent,
                       ),
 
-                    /// 💡 REKOMENDASI → LIST ✔
-                    if (parsed["rekomendasi"]!.isNotEmpty)
+                    /// 💡 SARAN → LIST ✔
+                    if (parsed["saran"]!.isNotEmpty)
                       _buildListCard(
-                        "💡 Rekomendasi",
-                        parsed["rekomendasi"]!,
+                        "💡 Saran",
+                        parsed["saran"]!,
                         Colors.greenAccent,
                         Icons.lightbulb,
                       ),
@@ -221,7 +232,14 @@ class AIFeedbackPage extends StatelessWidget {
 
   /// 🎯 USER DECISION
   Widget _buildDecisionCard() {
-    final isGood = answer.toLowerCase().contains("revisi");
+    // Status BENAR/SALAH sudah ditentukan oleh rule engine di
+    // SimulationAIService dan disisipkan sebagai header di awal
+    // `aiResult` ("✅ JAWABAN BENAR" / "❌ JAWABAN SALAH" / "✅ STRATEGI
+    // BENAR" / "❌ STRATEGI SALAH"). Versi sebelumnya menebak status dari
+    // `answer.contains("revisi")`, padahal jawaban benar tidak selalu
+    // "Revisi" (tergantung kasus: bisa juga "Terima" atau "Tolak"),
+    // sehingga warna kartu bisa salah menampilkan hijau/merah.
+    final isGood = aiResult.trimLeft().startsWith('✅');
 
     return Container(
       width: double.infinity,
