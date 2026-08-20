@@ -28,13 +28,6 @@ class AIFeedbackPage extends StatelessWidget {
   }
 
   /// 🔥 PARSER FINAL
-  ///
-  /// Prompt AI di SimulationAIService selalu menghasilkan heading Markdown
-  /// "## Alasan" / "## Kesalahan" (tergantung level), "## Dasar Hukum",
-  /// dan "## Saran" — bukan "Risiko:"/"Dampak:"/"Rekomendasi:" seperti
-  /// yang dicari versi sebelumnya. Key di sini diselaraskan dengan heading
-  /// asli tersebut (dengan alias "Alasan"/"Kesalahan" karena dua level
-  /// pakai istilah berbeda untuk section yang sama).
   Map<String, List<String>> parseAIResult(String text) {
     final jsonResult = _parseJsonAIResult(text);
     if (jsonResult != null) return jsonResult;
@@ -108,17 +101,6 @@ class AIFeedbackPage extends StatelessWidget {
         .toList();
   }
 
-  /// 🔥 EXTRACT LIST CLEAN
-  ///
-  /// Versi sebelumnya memakai regex yang mengasumsikan heading berformat
-  /// "Key:" (diakhiri titik dua). Tapi output AI sebenarnya berformat
-  /// heading Markdown "## Key" (tanpa titik dua), sehingga regex lama
-  /// nyaris tidak pernah cocok, dan begitu cocok pun lookahead-nya (yang
-  /// menunggu heading lain berakhiran ":") tidak pernah ketemu sampai
-  /// akhir teks — akibatnya satu section "menelan" seluruh sisa teks.
-  ///
-  /// Di sini heading dicocokkan sebagai baris "## <key>" dan section
-  /// berhenti tepat di heading "##" berikutnya, atau di akhir teks.
   List<String> _extractList(String text, List<String> keys) {
     for (final key in keys) {
       final regex = RegExp(
@@ -152,158 +134,292 @@ class AIFeedbackPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-
-              _buildDecisionCard(),
-
-              const SizedBox(height: 20),
-
-              Expanded(
-                child: ListView(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    /// 📖 ALASAN / KESALAHAN → PARAGRAF
+                    /// 1. LOGO BRAND HEADER (HORIZONTALLY CENTERED)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              blurRadius: 16,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/logo/logo_icon.png',
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ).animate().fadeIn().scale(begin: const Offset(0.8, 0.8)),
+
+                    const SizedBox(height: 12),
+
+                    /// 2. TITLE "ANALISIS AI" (HORIZONTALLY CENTERED)
+                    Center(
+                      child: Text(
+                        "Analisis AI",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: AppColors.text,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ).animate().fadeIn().slideY(begin: -0.2),
+
+                    const SizedBox(height: 6),
+
+                    /// AI ENGINE BADGE (HORIZONTALLY CENTERED)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3156D3), Color(0xFF6366F1)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                            )
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome, color: AppColors.aiGlow, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Powered by Leximpact AI Engine",
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 200.ms),
+
+                    const SizedBox(height: 20),
+
+                    /// 3. DESKRIPSI SINGKAT & USER DECISION CARD (CENTERED)
+                    _buildDecisionCard(),
+
+                    const SizedBox(height: 20),
+
+                    /// 4. AI ANALYSIS CONTENT (CARDS)
+                    /// 📖 PENJELASAN / ALASAN
                     if (parsed["alasan"]!.isNotEmpty)
                       _buildAnalysisCard(
-                        "📖 Penjelasan",
+                        "📖 Penjelasan & Alasan",
                         listToParagraph([...parsed["alasan"]!]),
-                        Colors.redAccent,
+                        const Color(0xFFEF4444),
+                        Icons.analytics_rounded,
                       ),
 
-                    /// 📜 DASAR HUKUM → PARAGRAF
+                    /// 📜 DASAR HUKUM
                     if (parsed["dasarHukum"]!.isNotEmpty)
                       _buildAnalysisCard(
                         "📜 Dasar Hukum",
                         listToParagraph([...parsed["dasarHukum"]!]),
-                        Colors.orangeAccent,
+                        const Color(0xFFF59E0B),
+                        Icons.gavel_rounded,
                       ),
 
-                    /// 💡 SARAN → LIST ✔
+                    /// 💡 SARAN & REKOMENDASI
                     if (parsed["saran"]!.isNotEmpty)
                       _buildListCard(
-                        "💡 Saran",
+                        "💡 Saran & Rekomendasi HR",
                         parsed["saran"]!,
-                        Colors.greenAccent,
-                        Icons.lightbulb,
+                        const Color(0xFF10B981),
+                        Icons.lightbulb_rounded,
                       ),
 
-                    /// 🤖 FULL AI
+                    /// 🤖 FULL AI ANALYSIS
                     _buildAnalysisCard(
                       "🤖 Analisis Lengkap AI",
                       aiResult,
-                      Colors.blueAccent,
+                      AppColors.primary,
+                      Icons.smart_toy_rounded,
                     ),
+
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
+            ),
 
-              _buildContinueButton(context)
-            ],
-          ),
+            /// 5. CTA BUTTON (BOTTOM FIXED CONTAINER)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: _buildContinueButton(context),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 🧠 HEADER
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        const Icon(Icons.psychology, color: AppColors.primary),
-        const SizedBox(width: 10),
-        Text(
-          "Analisis AI",
-          style: GoogleFonts.poppins(
-            color: AppColors.text,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        )
-      ],
-    )
-        .animate()
-        .fadeIn()
-        .slideX(begin: -0.2);
-  }
-
-  /// 🎯 USER DECISION
+  /// 🎯 USER DECISION CARD (HORIZONTALLY CENTERED TEXT & BADGE)
   Widget _buildDecisionCard() {
-    // Status BENAR/SALAH sudah ditentukan oleh rule engine di
-    // SimulationAIService dan disisipkan sebagai header di awal
-    // `aiResult` ("✅ JAWABAN BENAR" / "❌ JAWABAN SALAH" / "✅ STRATEGI
-    // BENAR" / "❌ STRATEGI SALAH"). Versi sebelumnya menebak status dari
-    // `answer.contains("revisi")`, padahal jawaban benar tidak selalu
-    // "Revisi" (tergantung kasus: bisa juga "Terima" atau "Tolak"),
-    // sehingga warna kartu bisa salah menampilkan hijau/merah.
     final isGood = aiResult.trimLeft().startsWith('✅');
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isGood
-              ? [Colors.green.shade400, Colors.green.shade700]
-              : [Colors.red.shade400, Colors.red.shade700],
+              ? [const Color(0xFF10B981), const Color(0xFF059669)]
+              : [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: (isGood ? Colors.green : Colors.red).withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: Text(
-        "Keputusan Anda: $answer",
-        style: GoogleFonts.poppins(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              isGood ? "✅ KEPUTUSAN TEPAT" : "⚠️ EVALUASI STRATEGIS",
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Keputusan Anda:\n\"$answer\"",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
-    ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9));
+    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95));
   }
 
   /// 📊 ANALYSIS CARD
   Widget _buildAnalysisCard(
-      String title, String content, Color color) {
+    String title,
+    String content,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withOpacity(0.2),
-            child: Icon(Icons.analytics, color: color),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
                   title,
                   style: GoogleFonts.poppins(
-                    color: color,
+                    color: AppColors.text,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 6),
-                MarkdownBody(
-                  data: content,
-                  styleSheet:  MarkdownStyleSheet(
-                    p: TextStyle(color: AppColors.mutedText, height: 1.6),
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(color: AppColors.border.withValues(alpha: 0.6), height: 1),
+          const SizedBox(height: 12),
+          MarkdownBody(
+            data: content,
+            styleSheet: MarkdownStyleSheet(
+              p: GoogleFonts.poppins(
+                color: AppColors.mutedText,
+                fontSize: 14,
+                height: 1.6,
+              ),
+              strong: GoogleFonts.poppins(
+                color: AppColors.text,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          )
+          ),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: 0.2);
+    ).animate().fadeIn().slideY(begin: 0.15);
   }
 
   /// 💡 LIST CARD
@@ -314,45 +430,63 @@ class AIFeedbackPage extends StatelessWidget {
     IconData icon,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: GoogleFonts.poppins(
-                  color: color,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-
+          const SizedBox(height: 12),
+          Divider(color: AppColors.border.withValues(alpha: 0.6), height: 1),
+          const SizedBox(height: 12),
           ...items.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle,
-                        size: 16, color: color),
-                    const SizedBox(width: 8),
+                    Icon(Icons.check_circle_rounded, size: 18, color: color),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         e,
-                        style: const TextStyle(
+                        style: GoogleFonts.poppins(
                           color: AppColors.mutedText,
-                          height: 1.4,
+                          fontSize: 14,
+                          height: 1.5,
                         ),
                       ),
                     ),
@@ -361,24 +495,33 @@ class AIFeedbackPage extends StatelessWidget {
               )),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: 0.2);
+    ).animate().fadeIn().slideY(begin: 0.15);
   }
 
-  /// 🚀 BUTTON
+  /// 🚀 CONTINUE BUTTON
   Widget _buildContinueButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () => Navigator.pop(context,true),
+        onPressed: () => Navigator.pop(context, true),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
-          padding: const EdgeInsets.all(16),
+          backgroundColor: AppColors.primary,
+          elevation: 4,
+          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text("Lanjutkan"),
+        child: Text(
+          "Lanjutkan Simulasi 🚀",
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
-    ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9));
+    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95));
   }
 }

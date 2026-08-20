@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:leximpactai/core/color/app_colors.dart';
 import 'package:leximpactai/domain/presentation/widgets/game_button.dart';
 import 'package:lottie/lottie.dart';
@@ -18,7 +19,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Stack(
         children: [
-          /// 🎨 BACKGROUND
+          /// 🎨 BACKGROUND GRADIENT
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -40,150 +41,246 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          /// ✨ GLOW
+          /// ✨ GLOW DECORATIONS
           Positioned(top: -100, left: -100, child: _glowCircle(220)),
           Positioned(bottom: -120, right: -80, child: _glowCircle(260)),
 
-          /// 🎮 CONTENT
+          /// 🎮 CONTENT (SCROLLABLE & RESPONSIVE)
           SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
 
-                /// 🎮 HUD
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  /// 🎮 HUD (LEVEL & XP)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      color: Colors.white.withOpacity(0.78),
-                      border:
-                          Border.all(color: AppColors.border),
+                      color: Colors.white.withValues(alpha: 0.85),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.06),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Level 1",
-                            style: TextStyle(color: AppColors.text)),
                         Row(
-                          children: const [
-                            Icon(Icons.star, color: Colors.yellow),
-                            SizedBox(width: 4),
-                            Text("120 XP",
-                                style: TextStyle(color: AppColors.text)),
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.stars, color: AppColors.primary, size: 18),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Level 1",
+                              style: GoogleFonts.poppins(
+                                color: AppColors.text,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
                           ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.amber.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                "120 XP",
+                                style: GoogleFonts.poppins(
+                                  color: AppColors.text,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ).animate().fadeIn(),
+                  ).animate().fadeIn(duration: 400.ms),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                /// 🧠 TITLE
-                const Text(
-                  "LEXIMPACT AI",
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                    letterSpacing: 2,
-                  ),
-                )
-                    .animate()
-                    .fadeIn(duration: 600.ms)
-                    .slideY(begin: -0.3),
+                  /// 🖼️ LEXIMPACT AI BRAND LOGO & TITLE
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      children: [
+                        // Logo Icon Image
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.25),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Image.asset(
+                              'assets/logo/logo_icon.png',
+                              height: 80,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
 
-                const SizedBox(height: 8),
+                        const SizedBox(height: 14),
 
-                /// SUBTITLE
-                const Text(
-                  "Legal Experience for HR Decision Impact",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.mutedText),
-                ).animate().fadeIn(delay: 300.ms),
+                        // Title Wordmark
+                        Text(
+                          "LEXIMPACT AI",
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
+                            letterSpacing: 2.0,
+                          ),
+                        ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
 
-                const SizedBox(height: 20),
+                        const SizedBox(height: 6),
 
-                /// 🤖 CHARACTER
-                SizedBox(
-                  height: 220,
-                  child: Lottie.asset('assets/lottie/chatbot.json'),
-                )
-                    .animate(onPlay: (controller) => controller.repeat())
-                    .scale(
-                      duration: 700.ms,
-                      begin: const Offset(0.8, 0.8),
-                      end: const Offset(1, 1),
-                    )
-                    .then(delay: 200.ms)
-                    .scale(
-                      begin: const Offset(1, 1),
-                      end: const Offset(1.05, 1.05),
-                      duration: 2.seconds,
-                    )
-                    .then()
-                    .scale(
-                      begin: const Offset(1.05, 1.05),
-                      end: const Offset(1, 1),
-                      duration: 2.seconds,
-                    ),
-
-                const SizedBox(height: 20),
-
-                /// 🧠 STORY
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    "Anda adalah HR Manager.\nSetiap keputusan yang Anda ambil memiliki dampak hukum bagi perusahaan dan karyawan.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.text, fontSize: 16),
-                  ),
-                ).animate().fadeIn(delay: 500.ms),
-
-                const Spacer(),
-
-                /// 🚀 BUTTON SIMULASI
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withOpacity(0.6),
-                          blurRadius: 30,
-                          spreadRadius: 2,
-                        )
+                        // Subtitle / Tagline
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "Legal Experience for HR Decision Impact",
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: 350.ms),
                       ],
                     ),
-                    child: GameButton(
-                      text: "▶ MULAI SIMULASI",
-                      onTap: () => context.go('/simulation'),
-                    ),
                   ),
-                )
-                    .animate()
-                    .scale(delay: 700.ms)
-                    .fadeIn(),
 
-                const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                /// 🎯 MENU
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-_miniMenu("Materi", Icons.menu_book, "/materi"),
-                    const SizedBox(width: 10),
-_miniMenu("Kuis", Icons.quiz, "/quiz"),
-                    const SizedBox(width: 10),
-_miniMenu("Tentang", Icons.info, "/about"),                  ],
-                ).animate().fadeIn(delay: 900.ms),
+                  /// 🤖 CHARACTER ANIMATION
+                  SizedBox(
+                    height: 180,
+                    child: Lottie.asset('assets/lottie/chatbot.json'),
+                  )
+                      .animate(onPlay: (controller) => controller.repeat())
+                      .scale(
+                        duration: 700.ms,
+                        begin: const Offset(0.9, 0.9),
+                        end: const Offset(1, 1),
+                      )
+                      .then(delay: 200.ms)
+                      .scale(
+                        begin: const Offset(1, 1),
+                        end: const Offset(1.04, 1.04),
+                        duration: 2.seconds,
+                      )
+                      .then()
+                      .scale(
+                        begin: const Offset(1.04, 1.04),
+                        end: const Offset(1, 1),
+                        duration: 2.seconds,
+                      ),
 
-                const SizedBox(height: 30),
-              ],
+                  const SizedBox(height: 16),
+
+                  /// 🧠 STORY / ROLE CARD
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      "Anda adalah HR Manager.\nSetiap keputusan yang Anda ambil memiliki dampak hukum bagi perusahaan dan karyawan.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.text,
+                        fontSize: 14,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 500.ms),
+
+                  const SizedBox(height: 24),
+
+                  /// 🚀 BUTTON SIMULASI
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.5),
+                            blurRadius: 25,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 6),
+                          )
+                        ],
+                      ),
+                      child: GameButton(
+                        text: "▶ MULAI SIMULASI",
+                        onTap: () => context.go('/simulation'),
+                      ),
+                    ),
+                  ).animate().scale(delay: 700.ms).fadeIn(),
+
+                  const SizedBox(height: 20),
+
+                  /// 🎯 MINI MENU
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _miniMenu("Materi", Icons.menu_book_rounded, "/materi"),
+                      const SizedBox(width: 12),
+                      _miniMenu("Kuis", Icons.quiz_rounded, "/quiz"),
+                      const SizedBox(width: 12),
+                      _miniMenu("Tentang", Icons.info_outline_rounded, "/about"),
+                    ],
+                  ).animate().fadeIn(delay: 900.ms),
+
+                  const SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ],
@@ -198,78 +295,69 @@ _miniMenu("Tentang", Icons.info, "/about"),                  ],
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.accent.withOpacity(0.15),
+        color: AppColors.accent.withValues(alpha: 0.15),
       ),
     ).animate().scale(duration: 4.seconds).fadeIn();
   }
 
   /// 🎯 MINI MENU
- Widget _miniMenu(String text, IconData icon, String route) {
-  return GestureDetector(
-    onTap: () => context.push(route),
-    child: AnimatedContainer(
-      duration: 200.ms,
-      width: 90,
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-
-        /// 🌈 GLASS EFFECT
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withOpacity(0.9),
-            const Color(0xFFEAF1FF),
+  Widget _miniMenu(String text, IconData icon, String route) {
+    return GestureDetector(
+      onTap: () => context.push(route),
+      child: AnimatedContainer(
+        duration: 200.ms,
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.9),
+              const Color(0xFFEAF1FF),
+            ],
+          ),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            )
           ],
         ),
-
-        border: Border.all(color: AppColors.border),
-
-        /// 🔥 DEPTH
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          )
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          /// 🎯 ICON
-          Icon(
-            icon,
-            size: 26,
-            color: AppColors.primary,
-          )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(
-                duration: 2.seconds,
-                begin: const Offset(1, 1),
-                end: const Offset(1.1, 1.1),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 26,
+              color: AppColors.primary,
+            )
+                .animate(onPlay: (c) => c.repeat(reverse: true))
+                .scale(
+                  duration: 2.seconds,
+                  begin: const Offset(1, 1),
+                  end: const Offset(1.1, 1.1),
+                ),
+            const SizedBox(height: 6),
+            Text(
+              text,
+              style: GoogleFonts.poppins(
+                color: AppColors.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
-
-          const SizedBox(height: 6),
-
-          /// TEXT
-          Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  )
-      .animate()
-      .fadeIn(duration: 400.ms)
-      .scale(
-        duration: 300.ms,
-        curve: Curves.easeOutBack,
-      );
-}
+    )
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .scale(
+          duration: 300.ms,
+          curve: Curves.easeOutBack,
+        );
+  }
 }

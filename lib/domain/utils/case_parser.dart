@@ -40,8 +40,6 @@ class CaseParser {
     /// =========================
     /// 🔥 DETECT LEVEL
     /// =========================
-    final lower = clean.toLowerCase();
-
     final isLevel1 =
         clean.contains("✔ Terima") &&
         clean.contains("✔ Tolak") &&
@@ -52,31 +50,31 @@ class CaseParser {
     final isLevel2 = clean.contains("✔") && !isLevel3 && !isLevel1;
 
     /// =========================
-/// 🔵 LEVEL 3 (LANGKAH SUPER FIX)
-/// =========================
-if (RegExp(r"\d+\.\s").hasMatch(clean)) {
-  final matches = RegExp(r"\d+\.\s*").allMatches(clean).toList();
+    /// 🔵 LEVEL 3 (LANGKAH SUPER FIX)
+    /// =========================
+    if (RegExp(r"\d+\.\s").hasMatch(clean)) {
+      final matches = RegExp(r"\d+\.\s*").allMatches(clean).toList();
 
-  for (int i = 0; i < matches.length; i++) {
-    final start = matches[i].end;
-    final end = (i + 1 < matches.length)
-        ? matches[i + 1].start
-        : clean.length;
+      for (int i = 0; i < matches.length; i++) {
+        final start = matches[i].end;
+        final end = (i + 1 < matches.length)
+            ? matches[i + 1].start
+            : clean.length;
 
-    String step = clean.substring(start, end);
+        String step = clean.substring(start, end);
 
-    /// 🔥 CLEAN TOTAL
-    step = step
-        .replaceAll("\n", " ")
-        .replaceAll(RegExp(r"\s+"), " ")
-        .trim();
+        /// 🔥 CLEAN TOTAL
+        step = step
+            .replaceAll("\n", " ")
+            .replaceAll(RegExp(r"\s+"), " ")
+            .trim();
 
-    /// 🔥 FILTER BIAR GA MASUK SAMPAH
-    if (step.length > 15 && !step.toLowerCase().contains("kasus")) {
-      options.add(step);
+        /// 🔥 FILTER BIAR GA MASUK SAMPAH
+        if (step.length > 15 && !step.toLowerCase().contains("kasus")) {
+          options.add(step);
+        }
+      }
     }
-  }
-}
 
     /// =========================
     /// 🟢 LEVEL 1 (FIXED)

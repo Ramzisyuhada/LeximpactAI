@@ -25,87 +25,74 @@ class AboutPage extends StatelessWidget {
           children: [
             _buildHeader(),
             const SizedBox(height: 24),
-
             _buildDescription(),
             const SizedBox(height: 24),
-
             _buildVisionCard(),
             const SizedBox(height: 24),
-
             _buildFeatureCard(),
             const SizedBox(height: 24),
-
             _buildInfoCard(),
             const SizedBox(height: 24),
-
-            _buildCTA()
+            _buildCTA(context),
           ],
         ),
       ),
     );
   }
 
-  /// =========================
-  /// 🧠 HEADER (UPGRADE)
-  /// =========================
+  /// 🧠 HEADER
   Widget _buildHeader() {
-  return Column(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3156D3), Color(0xFF6366F1)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 20,
+              )
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.purple.withOpacity(0.5),
-              blurRadius: 20,
-            )
-          ],
-        ),
-        child: ClipOval(
-          child: Image.asset(
-            "assets/logo/Logo.png", // 🔥 GANTI PATH LOGO KAMU
-            width: 120,
-            height: 120,
-            fit: BoxFit.cover,
+          child: ClipOval(
+            child: Image.asset(
+              "assets/logo/logo_icon.png",
+              width: 90,
+              height: 90,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
-      ),
-
-      const SizedBox(height: 16),
-
-      Text(
-        "LEXIMPACT AI",
-        style: GoogleFonts.poppins(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: AppColors.text,
+        const SizedBox(height: 16),
+        Text(
+          "LEXIMPACT AI",
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppColors.text,
+          ),
         ),
-      ),
-
-      const SizedBox(height: 6),
-
-      Text(
-        "Smart HR Decision Simulator",
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(
-          color: AppColors.mutedText,
-          fontSize: 13,
+        const SizedBox(height: 6),
+        Text(
+          "Smart HR Decision Simulator",
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            color: AppColors.mutedText,
+            fontSize: 13,
+          ),
         ),
-      ),
-    ],
-  )
-      .animate()
-      .fadeIn(duration: 500.ms)
-      .scale(begin: const Offset(0.8, 0.8));
-}
+      ],
+    )
+        .animate()
+        .fadeIn(duration: 500.ms)
+        .scale(begin: const Offset(0.8, 0.8));
+  }
 
-  /// =========================
   /// 📖 DESCRIPTION
-  /// =========================
   Widget _buildDescription() {
     return _glassCard(
       child: Text(
@@ -118,9 +105,7 @@ class AboutPage extends StatelessWidget {
     ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2);
   }
 
-  /// =========================
   /// 🎯 VISI / VALUE
-  /// =========================
   Widget _buildVisionCard() {
     return _glassCard(
       child: Column(
@@ -132,7 +117,6 @@ class AboutPage extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               )),
           const SizedBox(height: 10),
-
           _bullet("Meningkatkan pemahaman hukum ketenagakerjaan"),
           _bullet("Melatih pengambilan keputusan HR"),
           _bullet("Menyediakan simulasi realistis berbasis AI"),
@@ -160,9 +144,7 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  /// =========================
-  /// ⭐ FEATURE (UPGRADE UI)
-  /// =========================
+  /// ⭐ FEATURE
   Widget _buildFeatureCard() {
     return _glassCard(
       child: Column(
@@ -170,11 +152,10 @@ class AboutPage extends StatelessWidget {
         children: [
           Text("✨ Fitur Utama",
               style: GoogleFonts.poppins(
-                color: Colors.white,
+                color: AppColors.text,
                 fontWeight: FontWeight.bold,
               )),
           const SizedBox(height: 10),
-
           _feature("🎮 Simulasi HR berbasis kasus nyata"),
           _feature("🤖 Analisis AI otomatis"),
           _feature("📚 Materi interaktif"),
@@ -194,9 +175,7 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  /// =========================
   /// 📊 INFO
-  /// =========================
   Widget _buildInfoCard() {
     return _glassCard(
       child: Column(
@@ -224,14 +203,12 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  /// =========================
   /// 🚀 CTA BUTTON
-  /// =========================
-  Widget _buildCTA() {
+  Widget _buildCTA(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () => Navigator.pop(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF6366F1),
           padding: const EdgeInsets.all(16),
@@ -239,14 +216,12 @@ class AboutPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text("Mulai Simulasi 🚀"),
+        child: const Text("Kembali ke Home 🚀"),
       ),
     ).animate().fadeIn(delay: 600.ms).scale();
   }
 
-  /// =========================
   /// 🔥 GLASS CARD COMPONENT
-  /// =========================
   Widget _glassCard({required Widget child}) {
     return Container(
       width: double.infinity,
