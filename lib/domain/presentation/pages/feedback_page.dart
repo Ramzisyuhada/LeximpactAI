@@ -233,16 +233,16 @@ class AIFeedbackPage extends StatelessWidget {
                     if (parsed["alasan"]!.isNotEmpty)
                       _buildAnalysisCard(
                         "📖 Penjelasan & Alasan",
-                        listToParagraph([...parsed["alasan"]!]),
+                        parsed["alasan"]!.join(" "),
                         const Color(0xFFEF4444),
                         Icons.analytics_rounded,
                       ),
 
-                    /// 📜 DASAR HUKUM
+                    /// 📜 DASAR HUKUM (pasal dari data lokal)
                     if (parsed["dasarHukum"]!.isNotEmpty)
-                      _buildAnalysisCard(
+                      _buildListCard(
                         "📜 Dasar Hukum",
-                        listToParagraph([...parsed["dasarHukum"]!]),
+                        parsed["dasarHukum"]!,
                         const Color(0xFFF59E0B),
                         Icons.gavel_rounded,
                       ),
@@ -255,14 +255,6 @@ class AIFeedbackPage extends StatelessWidget {
                         const Color(0xFF10B981),
                         Icons.lightbulb_rounded,
                       ),
-
-                    /// 🤖 FULL AI ANALYSIS
-                    _buildAnalysisCard(
-                      "🤖 Analisis Lengkap AI",
-                      aiResult,
-                      AppColors.primary,
-                      Icons.smart_toy_rounded,
-                    ),
 
                     const SizedBox(height: 10),
                   ],
@@ -327,7 +319,9 @@ class AIFeedbackPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              isGood ? "✅ KEPUTUSAN TEPAT" : "⚠️ EVALUASI STRATEGIS",
+              // Baris pertama hasil analisis berisi status + skor,
+              // mis. "✅ JAWABAN BENAR · Skor 100/100".
+              aiResult.trimLeft().split('\n').first,
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

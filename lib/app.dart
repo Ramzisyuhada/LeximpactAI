@@ -6,7 +6,6 @@ import 'package:leximpactai/domain/presentation/pages/home_page.dart';
 import 'package:leximpactai/domain/presentation/pages/materi_page.dart';
 import 'package:leximpactai/domain/presentation/pages/quiz_page.dart';
 import 'package:leximpactai/domain/presentation/pages/simulation_page.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main()  async {
 

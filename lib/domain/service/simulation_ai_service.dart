@@ -1,580 +1,363 @@
-import 'package:leximpactai/domain/model/generated_case.dart';
-import 'package:leximpactai/domain/service/rule_engine.dart';
-import 'package:leximpactai/domain/utils/generated_case_parser.dart';
+import 'dart:convert';
+import 'dart:math';
 
-import 'mistral_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:leximpactai/domain/model/case_blueprint.dart';
+import 'package:leximpactai/domain/model/generated_case.dart';
+import 'package:leximpactai/domain/service/knowledge_base.dart';
+import 'package:leximpactai/domain/service/rule_engine.dart';
+
+import 'gemini_service.dart';
 import 'rag_service.dart';
 
+class SimulationFeedback {
+  final Evaluation evaluation;
+  final RagResult references;
+
+  /// Markdown dengan bagian `## Alasan`, `## Dasar Hukum`, `## Saran`
+  /// yang dibaca oleh AIFeedbackPage.
+  final String markdown;
+
+  /// `true` bila bagian Alasan & Saran ditulis oleh Gemini.
+  final bool aiGenerated;
+
+  const SimulationFeedback({
+    required this.evaluation,
+    required this.references,
+    required this.markdown,
+    required this.aiGenerated,
+  });
+}
+
+/// Alur simulasi:
+/// 1. Kasus diambil dari bank blueprint lokal (kunci jawaban & pasal acuan
+///    sudah pasti), lalu Gemini menulis ulang narasinya agar bervariasi.
+/// 2. Jawaban dinilai [RuleEngine] secara deterministik.
+/// 3. Pasal dicari dengan [RagService] lokal; Gemini hanya menjelaskan
+///    Alasan & Saran, sedangkan Dasar Hukum diambil langsung dari data
+///    lokal sehingga pasal tidak bisa dikarang AI.
+///
+/// Bila Gemini gagal (offline, timeout, output rusak), semua langkah tetap
+/// berjalan memakai narasi dan penjelasan bawaan blueprint.
 class SimulationAIService {
-  final mistral = MistralService();
-  final rag = RagService();
-  final ruleEngine = RuleEngine();
+  final GeminiService _gemini;
+  final RuleEngine _ruleEngine;
+  final Random _random;
 
-  static final Map<String, GeneratedCase> _caseRegistry = {};
-  static GeneratedCase? _lastGeneratedCase;
+  /// ID kasus yang baru dimainkan, agar tidak cepat terulang.
+  static final List<String> _recentCaseIds = [];
+  static const int _recentLimit = 12;
 
-  /// Batas jumlah kasus yang disimpan di registry statis. Tanpa batas ini
-  /// registry akan terus tumbuh selama app hidup (tidak pernah dibersihkan)
-  /// dan berpotensi jadi memory leak lambat di aplikasi mobile yang
-  /// dipakai lama. Saat melebihi batas, entri paling lama dihapus.
-  static const int _maxCaseRegistrySize = 50;
+  SimulationAIService({
+    GeminiService? gemini,
+    RuleEngine? ruleEngine,
+    Random? random,
+  })  : _gemini = gemini ?? GeminiService(),
+        _ruleEngine = ruleEngine ?? RuleEngine(),
+        _random = random ?? Random();
 
   /// =========================
-  /// 🔥 ANALYZE LEVEL 1 & 2
+  /// 🎲 GENERATE CASE
   /// =========================
-  Future<String> analyze({
-    required String scenario,
-    required String userAnswer,
+  Future<GeneratedCase> generateCase(int level) async {
+    final kb = await KnowledgeBase.load();
+    final blueprint = _pickBlueprint(kb.casesForLevel(level));
+    final rewritten = await _rewriteScenario(blueprint);
+
+    return GeneratedCase(
+      blueprint: blueprint,
+      scenario: rewritten ?? blueprint.skenario,
+      options: _displayOptions(blueprint),
+      aiScenario: rewritten != null,
+    );
+  }
+
+  /// =========================
+  /// 🧠 ANALYZE
+  /// =========================
+  /// Isi [answer] untuk kasus pilihan, atau [steps] untuk kasus susun
+  /// langkah.
+  Future<SimulationFeedback> analyze(
+    GeneratedCase generatedCase, {
+    String? answer,
+    List<String>? steps,
   }) async {
-    final generatedCase = _lookupCase(scenario) ??
-      _fallbackCaseForAnalysis(scenario: scenario);
-    final stableCase = ruleEngine.applyRules(generatedCase);
-    final evaluation = ruleEngine.evaluateAnswer(
-      generatedCase: stableCase,
-      userAnswer: userAnswer,
+    final evaluation = generatedCase.isStepCase
+        ? _ruleEngine.evaluateSteps(generatedCase, steps ?? const [])
+        : _ruleEngine.evaluateChoice(generatedCase, answer ?? '');
+
+    final kb = await KnowledgeBase.load();
+    final references = RagService(kb).retrieve(
+      query: _ragQuery(generatedCase, evaluation),
+      pinnedIds: generatedCase.blueprint.refs,
+      tahap: generatedCase.blueprint.tahap,
     );
 
-    final ragResult = await rag.getContextChecked(
-      _buildRagQuery(
-        scenario: scenario,
-        userAnswer: userAnswer,
-        correctAnswer: evaluation.correctAnswer,
-        lawTopics: stableCase.lawTopics,
+    var explanation = await _explainWithAI(generatedCase, evaluation, references);
+    final aiGenerated = explanation != null;
+    explanation ??= _fallbackExplanation(evaluation);
+
+    return SimulationFeedback(
+      evaluation: evaluation,
+      references: references,
+      markdown: _buildMarkdown(
+        generatedCase,
+        evaluation,
+        references,
+        alasan: explanation.alasan,
+        saran: explanation.saran,
       ),
+      aiGenerated: aiGenerated,
     );
-    final contextBlock = _contextBlock(ragResult);
+  }
 
-    final basePrompt = """
-Anda adalah ahli hukum ketenagakerjaan Indonesia.
+  CaseBlueprint _pickBlueprint(List<CaseBlueprint> candidates) {
+    if (candidates.isEmpty) {
+      throw StateError('Tidak ada kasus untuk level ini di kasus.json');
+    }
+
+    final fresh =
+        candidates.where((c) => !_recentCaseIds.contains(c.id)).toList();
+    final pool = fresh.isEmpty ? candidates : fresh;
+    final picked = pool[_random.nextInt(pool.length)];
+
+    _recentCaseIds.add(picked.id);
+    if (_recentCaseIds.length > _recentLimit) _recentCaseIds.removeAt(0);
+    return picked;
+  }
+
+  List<String> _displayOptions(CaseBlueprint blueprint) {
+    if (blueprint.isStepCase) {
+      final shuffled = List.of(blueprint.langkah);
+      // Pastikan susunan awal tidak kebetulan sudah benar.
+      do {
+        shuffled.shuffle(_random);
+      } while (shuffled.length > 1 && listEquals(shuffled, blueprint.langkah));
+      return shuffled;
+    }
+
+    final options = blueprint.pilihan.map((o) => o.teks).toList();
+    // Level 1 memakai pilihan baku Terima/Tolak/Revisi, urutannya tetap.
+    if (blueprint.level != 1) options.shuffle(_random);
+    return options;
+  }
+
+  Future<String?> _rewriteScenario(CaseBlueprint blueprint) async {
+    final prompt = """
+Anda penulis studi kasus hukum ketenagakerjaan Indonesia untuk mahasiswa.
+
+Tulis ulang skenario di bawah dengan nama perusahaan, nama tokoh, bidang usaha, dan detail latar yang BERBEDA. Semua fakta kunci WAJIB tetap ada dan maknanya tidak boleh berubah.
+
+Judul kasus: ${blueprint.judul}
+
+Skenario asli:
+${blueprint.skenario}
+
+Fakta kunci (wajib dipertahankan):
+${blueprint.fakta.map((f) => '- $f').join('\n')}
+
+Aturan:
+- 2-4 kalimat, bahasa Indonesia baku.
+- Jangan menyebut pasal atau undang-undang.
+- Jangan memberi petunjuk jawaban dan jangan menilai benar/salah.
+- Jangan menambah fakta yang dapat mengubah jawaban yang benar.
+
+Output JSON: {"scenario": "..."}
+""";
+
+    try {
+      final output =
+          await _gemini.generate(prompt, temperature: 0.8, jsonMode: true);
+      final json = _decodeJsonObject(output);
+      final scenario = (json?['scenario'] as String?)?.trim() ?? '';
+      if (scenario.length < 80 || scenario.length > 900) return null;
+      return scenario;
+    } catch (e) {
+      debugPrint('Rewrite scenario gagal, pakai skenario bawaan: $e');
+      return null;
+    }
+  }
+
+  Future<_Explanation?> _explainWithAI(
+    GeneratedCase generatedCase,
+    Evaluation evaluation,
+    RagResult references,
+  ) async {
+    final prompt = """
+Anda dosen hukum ketenagakerjaan Indonesia yang memberi umpan balik kepada mahasiswa.
+Penilaian SUDAH DITETAPKAN sistem. Jangan mengubah status, skor, maupun jawaban terbaik.
 
 Kasus:
-$scenario
+${generatedCase.scenario}
 
-Status:
-${evaluation.status}
+Pertanyaan:
+${generatedCase.question}
 
-Jawaban terbaik:
-${evaluation.correctAnswer}
+${_evaluationSummary(evaluation)}
 
-Jawaban user:
-${evaluation.userAnswer}
+Referensi hukum (HANYA boleh merujuk daftar ini, sebut dengan nomornya, mis. [1]):
+${references.context}
 
-Referensi:
-$contextBlock
-
-Berikan jawaban SANGAT SINGKAT.
-
-Format:
-
-## Alasan
-Jelaskan maksimal 2 kalimat.
-
-## Dasar Hukum
-Sebutkan maksimal 1-2 pasal atau aturan jika ada.
-
-## Saran
-Berikan maksimal 2 poin singkat.
-
-Jangan memberi skor.
-Jangan mengulang kasus.
-Maksimal 120 kata.
-""";
-    final output = await mistral.generate(basePrompt, temperature: 0.2);
-    final aiResult = output.isNotEmpty ? output : _fallbackAnswerText(evaluation);
-
-    // Prepend status header. CATATAN: fallback text (_fallbackAnswerText)
-    // TIDAK boleh menaruh emoji status sendiri di dalamnya, karena header
-    // ini akan selalu ditambahkan di sini terlepas dari sumber aiResult
-    // (mistral atau fallback) — kalau fallback juga menaruh emoji sendiri,
-    // hasilnya emoji status akan muncul dua kali.
-    final statusHeader = evaluation.isCorrect
-        ? '✅ JAWABAN BENAR\n\n'
-        : '❌ JAWABAN SALAH\n\n';
-
-    return statusHeader + aiResult;
-  }
-
-  /// =========================
-  /// 🔥 LEVEL 1 (FIXED)
-  /// =========================
-  Future<String> generateCase() async {
-    final caseTypes = [
-      'diskriminasi usia dalam rekrutmen (pilihan yang sesuai prosedur adalah Revisi)',
-      'pelamar yang memenuhi kriteria namun masih ditolak (pilihan yang sesuai adalah Terima)',
-      'prosedur rekrutmen yang melanggar hukum ketenagakerjaan (pilihan yang sesuai adalah Tolak)',
-    ];
-    
-    final randomType = caseTypes[DateTime.now().millisecond % caseTypes.length];
-    
-    final prompt = """
-Buat 1 kasus HR tentang rekrutmen: $randomType
-
-Jangan menentukan jawaban benar, jangan memberi evaluasi, dan jangan memberi skor.
-
-Output HARUS JSON valid tanpa markdown:
-{
-  "scenario": "Tulisan 2-3 kalimat",
-  "options": ["Terima", "Tolak", "Revisi prosedur"],
-  "lawTopics": ["rekrutmen", "ketenagakerjaan"]
-}
-
-ATURAN:
-- Jangan ubah kata pilihan.
-- Gunakan bahasa Indonesia.
-- Scenario HARUS cocok dengan tipe kasus: $randomType
-""";
-
-    final generatedCase = await _generateCaseFromAI(
-      prompt: prompt,
-      fallbackOptions: RuleEngine.level1Options,
-      fallbackLawTopics: RuleEngine.level1LawTopics,
-    );
-    final stableCase = ruleEngine.applyRules(
-      generatedCase.copyWith(
-        options: RuleEngine.level1Options,
-        lawTopics: RuleEngine.level1LawTopics,
-      ),
-    );
-    _rememberCase(stableCase);
-
-    return stableCase.toJsonString();
-  }
-
-  /// =========================
-  /// 🔥 LEVEL 2 (DINAMIS)
-  /// =========================
-  Future<String> generateCaseLevel2() async {
-    final prompt = """
-Buat 1 kasus HR kompleks tentang konflik lembur, upah, dan keselamatan kerja.
-
-Jangan menentukan jawaban benar, jangan memberi evaluasi, dan jangan memberi skor.
-
-Output HARUS JSON valid tanpa markdown:
-{
-  "scenario": "Tulisan 2-3 kalimat",
-  "options": ["opsi singkat", "opsi singkat", "opsi singkat"],
-  "lawTopics": ["lembur", "upah", "keselamatan kerja"]
-}
-
-ATURAN:
-- Setiap pilihan maksimal 15 kata.
-- Buat 3 pilihan tindakan HR yang realistis.
-- Jangan gunakan A/B/C.
-- Jangan ada penjelasan tambahan.
-""";
-
-    final generatedCase = await _generateCaseFromAI(
-      prompt: prompt,
-      fallbackOptions: const [
-        'Bayar lembur dan audit jadwal kerja',
-        'Abaikan keluhan karena target produksi',
-        'Mediasi dan perbaiki prosedur keselamatan',
-      ],
-      fallbackLawTopics: RuleEngine.level2LawTopics,
-    );
-    final stableCase = ruleEngine.applyRules(
-      generatedCase.copyWith(
-        options: _normalizeOptions(
-          generatedCase.options,
-          const [
-            'Bayar lembur dan audit jadwal kerja',
-            'Abaikan keluhan karena target produksi',
-            'Mediasi dan perbaiki prosedur keselamatan',
-          ],
-          maxItems: 3,
-        ),
-        lawTopics: generatedCase.lawTopics.isEmpty
-            ? RuleEngine.level2LawTopics
-            : generatedCase.lawTopics,
-      ),
-    );
-    _rememberCase(stableCase);
-
-    return stableCase.toJsonString();
-  }
-
-  /// =========================
-  /// 🔥 LEVEL 3 (LANGKAH GAME)
-  /// =========================
-  Future<String> generateCaseLevel3() async {
-    final prompt = """
-Buat satu kasus HR kompleks tentang PHK karena efisiensi perusahaan.
-
-Jangan membuat daftar langkah benar.
-Jangan menentukan strategi terbaik.
-Jangan memberi evaluasi.
-
-Output HARUS JSON valid tanpa markdown:
-{
-  "scenario": "Tulisan 2-3 kalimat",
-  "lawTopics": ["PHK efisiensi", "perundingan bipartit", "pesangon"]
-}
-
-ATURAN:
-- Gunakan bahasa Indonesia.
-- Jangan ada penjelasan tambahan.
-""";
-
-    final generatedCase = await _generateCaseFromAI(
-      prompt: prompt,
-      fallbackOptions: RuleEngine.level3CorrectSteps,
-      fallbackLawTopics: RuleEngine.level3LawTopics,
-      stepCase: true,
-    );
-    final stableCase = ruleEngine.applyRules(
-      generatedCase.copyWith(
-        options: RuleEngine.level3CorrectSteps,
-        lawTopics: generatedCase.lawTopics.isEmpty
-            ? RuleEngine.level3LawTopics
-            : generatedCase.lawTopics,
-      ),
-      stepCase: true,
-    );
-    _rememberCase(stableCase);
-
-    return stableCase.toJsonString();
-  }
-
-  /// =========================
-  /// 🔥 ANALYZE LEVEL 3
-  /// =========================
-  Future<String> analyzeLevel3({
-    required String scenario,
-    required String userAnswer,
-  }) async {
-    final generatedCase = ruleEngine.applyRules(
-      _lookupCase(scenario) ??
-          GeneratedCase(
-            scenario: scenario,
-            options: RuleEngine.level3CorrectSteps,
-            correctAnswer: RuleEngine.level3CorrectSteps.join(' -> '),
-            lawTopics: RuleEngine.level3LawTopics,
-          ),
-      stepCase: true,
-    );
-    final userSteps = _splitUserSteps(userAnswer);
-    final evaluation = ruleEngine.evaluateSteps(
-      generatedCase: generatedCase,
-      userSteps: userSteps,
-    );
-
-    final ragResult = await rag.getContextChecked(
-      _buildRagQuery(
-        scenario: scenario,
-        userAnswer: userAnswer,
-        correctAnswer: generatedCase.correctAnswer,
-        lawTopics: generatedCase.lawTopics,
-      ),
-    );
-    final contextBlock = _contextBlock(ragResult);
-
-    // CATATAN: sebelumnya di sini ada DUA blok instruksi format sekaligus
-    // ("Format jawaban:" versi panjang dengan 5 heading, lalu "Format:"
-    // versi pendek dengan 3 heading tepat setelahnya) yang saling
-    // bertentangan — model dikasih dua spesifikasi format berbeda dalam
-    // satu prompt, membuat hasil AI tidak konsisten. Sekarang hanya ada
-    // satu format (versi pendek), selaras dengan format di `analyze()`
-    // dan dengan parser di AIFeedbackPage.
-    final basePrompt = """
-Anda adalah ahli hukum ketenagakerjaan Indonesia.
-
-BATASAN WAJIB:
-- Urutan langkah benar SUDAH ditentukan sistem.
-- Status strategi user SUDAH ditentukan sistem.
-- Jangan menentukan langkah terbaik.
-- Jangan menentukan benar atau salah.
+Tugas:
+- "alasan": 2-3 kalimat pendek yang menjelaskan mengapa keputusan mahasiswa dinilai demikian, kaitkan dengan referensi.
+- "saran": 2-3 poin tindakan HR yang konkret dan sesuai hukum.
+- Jangan menyebut pasal atau undang-undang di luar daftar referensi.
 - Jangan memberi skor.
 
-Kasus:
-$scenario
-
-Status strategi user:
-${evaluation.status}
-
-Langkah benar menurut sistem:
-${_formatNumberedList(evaluation.correctSteps)}
-
-Langkah user:
-${_formatNumberedList(evaluation.userSteps)}
-
-Langkah yang salah:
-${_formatList(evaluation.wrongSteps)}
-
-Langkah yang urutannya keliru:
-${_formatList(evaluation.misorderedSteps)}
-
-Langkah yang dilewati:
-${_formatList(evaluation.missedSteps)}
-
-Referensi hukum:
-$contextBlock
-
-Tugas AI:
-- Jelaskan langkah yang salah dan/atau dilewati
-- Jelaskan konsekuensi hukum dan risikonya
-- Berikan rekomendasi perbaikan singkat
-
-Berikan jawaban SANGAT SINGKAT.
-
-Format:
-
-## Kesalahan
-Maksimal 2 kalimat.
-
-## Dasar Hukum
-Maksimal 1-2 aturan jika ada.
-
-## Saran
-Maksimal 2 poin.
-
-Jangan memberi skor.
-Jangan mengulang kasus.
-Maksimal 120 kata.
+Output JSON: {"alasan": ["..."], "saran": ["..."]}
 """;
 
-    final output = await mistral.generate(basePrompt, temperature: 0.2);
-    final aiResult = output.isNotEmpty ? output : _fallbackStepText(evaluation);
+    try {
+      final output =
+          await _gemini.generate(prompt, temperature: 0.2, jsonMode: true);
+      final json = _decodeJsonObject(output);
+      if (json == null) return null;
 
-    // Prepend status header (lihat catatan yang sama di `analyze()`
-    // soal kenapa fallback text tidak boleh menaruh emoji status sendiri).
-    final statusHeader = evaluation.isCorrect
-        ? '✅ STRATEGI BENAR\n\n'
-        : '❌ STRATEGI SALAH\n\n';
+      final alasan = _stringList(json['alasan']);
+      final saran = _stringList(json['saran']);
+      if (alasan.isEmpty || saran.isEmpty) return null;
 
-    return statusHeader + aiResult;
+      return _Explanation(alasan: alasan, saran: saran);
+    } catch (e) {
+      debugPrint('Analisis AI gagal, pakai penjelasan lokal: $e');
+      return null;
+    }
   }
 
-  /// Converts AI case output into a structured model.
-  Future<GeneratedCase> _generateCaseFromAI({
-    required String prompt,
-    required List<String> fallbackOptions,
-    required List<String> fallbackLawTopics,
-    bool stepCase = false,
-  }) async {
-    final rawOutput = await mistral.generate(prompt, temperature: 0.4);
+  String _evaluationSummary(Evaluation evaluation) {
+    if (evaluation.isStepEvaluation) {
+      final misplaced = evaluation.misplacedSteps;
+      return """
+Status: ${evaluation.statusLabel} (skor ${evaluation.score}/100)
 
-    return GeneratedCaseParser.parse(
-      rawOutput,
-      fallbackOptions: fallbackOptions,
-      fallbackLawTopics: fallbackLawTopics,
-      stepCase: stepCase,
+Urutan langkah yang benar:
+${_numbered(evaluation.correctSteps)}
+
+Urutan susunan mahasiswa:
+${_numbered(evaluation.stepChecks.map((c) => c.step).toList())}
+
+Langkah yang posisinya keliru:
+${misplaced.isEmpty ? '(tidak ada)' : misplaced.map((c) => '- "${c.step}" di urutan ${c.userPosition}, seharusnya ${c.correctPosition}').join('\n')}
+""";
+    }
+
+    return """
+Status: ${evaluation.statusLabel} (skor ${evaluation.score}/100)
+Jawaban mahasiswa: ${evaluation.userAnswer}
+Catatan sistem untuk jawaban mahasiswa: ${evaluation.userExplanation}
+Jawaban terbaik: ${evaluation.bestAnswer}
+Catatan sistem untuk jawaban terbaik: ${evaluation.bestExplanation}
+""";
+  }
+
+  _Explanation _fallbackExplanation(Evaluation evaluation) {
+    if (evaluation.isStepEvaluation) {
+      final misplaced = evaluation.misplacedSteps;
+      return _Explanation(
+        alasan: misplaced.isEmpty
+            ? ['Seluruh langkah sudah tersusun sesuai urutan prosedur yang sah.']
+            : [
+                'Ada ${misplaced.length} langkah yang posisinya belum tepat.',
+                ...misplaced.map(
+                  (c) => '"${c.step}" seharusnya berada di urutan '
+                      '${c.correctPosition}, bukan ${c.userPosition}.',
+                ),
+              ],
+        saran: [
+          'Ikuti urutan prosedur: ${evaluation.correctSteps.join(' → ')}.',
+          'Dokumentasikan setiap tahap secara tertulis sebagai bukti kepatuhan.',
+        ],
+      );
+    }
+
+    return _Explanation(
+      alasan: [
+        if (evaluation.userExplanation.isNotEmpty) evaluation.userExplanation,
+        if (!evaluation.isCorrect)
+          'Jawaban terbaik adalah "${evaluation.bestAnswer}": '
+              '${evaluation.bestExplanation}',
+      ],
+      saran: [
+        if (!evaluation.isCorrect) evaluation.bestExplanation,
+        'Dokumentasikan keputusan beserta dasar hukumnya agar dapat dipertanggungjawabkan.',
+      ],
     );
   }
 
-  /// Fallback text untuk `analyze()` ketika mistral tidak mengembalikan
-  /// output. Heading DISELARASKAN dengan format prompt asli (## Alasan /
-  /// ## Dasar Hukum / ## Saran) supaya parser di AIFeedbackPage bisa
-  /// membaca hasil fallback dengan cara yang sama seperti hasil AI asli.
-  /// Emoji status TIDAK ditaruh di sini karena sudah ditambahkan oleh
-  /// caller (`analyze()`), lihat catatan di sana.
-  String _fallbackAnswerText(AnswerEvaluation evaluation) {
-    return """## Alasan
-
-Rule engine menetapkan status ${evaluation.status}. Jawaban terbaik sistem adalah "${evaluation.correctAnswer}", sedangkan jawaban user adalah "${evaluation.userAnswer}".
-
-## Dasar Hukum
-
-Ketentuan ketenagakerjaan yang relevan dengan kasus ini menjadi dasar penentuan jawaban terbaik di atas.
-
-## Saran
-
-- Gunakan keputusan terbaik yang sudah ditetapkan sistem sebagai dasar tindakan.
-- Pastikan tindakan HR didukung dokumen, prosedur tertulis, dan rujukan hukum yang relevan.
-""";
-  }
-
-  /// Fallback text untuk `analyzeLevel3()`. Sama seperti
-  /// [_fallbackAnswerText]: heading diselaraskan dengan format prompt
-  /// (## Kesalahan / ## Dasar Hukum / ## Saran) dan tidak menaruh emoji
-  /// status sendiri.
-  String _fallbackStepText(StepEvaluation evaluation) {
-    final problematicSteps = [
-      ...evaluation.wrongSteps,
-      ...evaluation.misorderedSteps,
-    ];
-
-    final kesalahan = evaluation.isCorrect
-        ? 'Semua langkah strategi user sudah benar sesuai urutan sistem.'
-        : 'Ada langkah yang tidak tepat, urutan yang keliru, dan/atau langkah yang dilewati dibandingkan urutan yang ditetapkan sistem.';
-
-    final detailMasalah = <String>[
-      if (evaluation.missedSteps.isNotEmpty)
-        'Langkah yang dilewati: ${evaluation.missedSteps.join(", ")}.',
-      if (problematicSteps.isNotEmpty)
-        'Langkah bermasalah: ${problematicSteps.join(", ")}.',
-    ].join(' ');
-
-    return """## Kesalahan
-
-$kesalahan${detailMasalah.isEmpty ? '' : ' $detailMasalah'}
-
-## Dasar Hukum
-
-Prosedur PHK karena efisiensi wajib melalui audit alasan, perundingan bipartit, dan pemenuhan hak pekerja sesuai ketentuan ketenagakerjaan yang berlaku.
-
-## Saran
-
-- Ikuti urutan langkah benar yang disimpan sistem.
-- Pastikan perundingan, pemberitahuan, dan pembayaran hak pekerja terdokumentasi.
-""";
-  }
-
-  GeneratedCase? _lookupCase(String scenario) {
-    final key = _normalizeKey(scenario);
-    return _caseRegistry[key] ??
-        (_normalizeKey(_lastGeneratedCase?.scenario ?? '') == key
-            ? _lastGeneratedCase
-            : null);
-  }
-
-  void _rememberCase(GeneratedCase generatedCase) {
-    final key = _normalizeKey(generatedCase.scenario);
-    if (key.isNotEmpty) {
-      _caseRegistry[key] = generatedCase;
-      // Batasi ukuran registry (lihat _maxCaseRegistrySize) supaya tidak
-      // tumbuh tanpa batas selama app hidup.
-      if (_caseRegistry.length > _maxCaseRegistrySize) {
-        _caseRegistry.remove(_caseRegistry.keys.first);
-      }
-    }
-    _lastGeneratedCase = generatedCase;
-  }
-
-  GeneratedCase _fallbackCaseForAnalysis({
-    required String scenario,
+  String _buildMarkdown(
+    GeneratedCase generatedCase,
+    Evaluation evaluation,
+    RagResult references, {
+    required List<String> alasan,
+    required List<String> saran,
   }) {
-    final lawTopics = _guessLawTopics(scenario);
-    final fallbackOptions = _fallbackOptionsForTopics(lawTopics);
+    final subject = generatedCase.isStepCase ? 'STRATEGI' : 'JAWABAN';
+    final icon = switch (evaluation.status) {
+      EvaluationStatus.benar => '✅',
+      EvaluationStatus.kurangTepat => '⚠️',
+      EvaluationStatus.salah => '❌',
+    };
 
-    return ruleEngine.applyRules(
-      GeneratedCase(
-        scenario: scenario,
-        options: _normalizeOptions(fallbackOptions, fallbackOptions),
-        correctAnswer: '',
-        lawTopics: lawTopics,
-      ),
-    );
-  }
+    final dasarHukum = references.hits.map((hit) {
+      final doc = hit.document;
+      final catatan = doc.catatan == null ? '' : ' (Catatan: ${doc.catatan})';
+      return '- ${doc.citation} — ${doc.judul}: ${doc.excerpt(600)}$catatan';
+    });
 
-  List<String> _fallbackOptionsForTopics(List<String> lawTopics) {
-    final normalizedTopics = lawTopics.map(_normalizeKey).toList();
-
-    if (normalizedTopics.any(
-      (topic) => topic.contains('phk') || topic.contains('efisiensi'),
-    )) {
-      return RuleEngine.level3CorrectSteps;
-    }
-
-    if (normalizedTopics.any(
-      (topic) =>
-          topic.contains('lembur') ||
-          topic.contains('upah') ||
-          topic.contains('keselamatan'),
-    )) {
-      return const [
-        'Bayar lembur dan audit jadwal kerja',
-        'Abaikan keluhan karena target produksi',
-        'Mediasi dan perbaiki prosedur keselamatan',
-      ];
-    }
-
-    return RuleEngine.level1Options;
-  }
-
-  List<String> _guessLawTopics(String scenario) {
-    final normalized = scenario.toLowerCase();
-    if (normalized.contains('phk') || normalized.contains('efisiensi')) {
-      return RuleEngine.level3LawTopics;
-    }
-    if (normalized.contains('lembur') ||
-        normalized.contains('upah') ||
-        normalized.contains('keselamatan')) {
-      return RuleEngine.level2LawTopics;
-    }
-    return RuleEngine.level1LawTopics;
-  }
-
-  List<String> _normalizeOptions(
-    List<String> options,
-    List<String> fallback, {
-    int maxItems = 5,
-  }) {
-    final values = options
-        .map((option) => option.trim())
-        .where((option) => option.isNotEmpty)
-        .toList();
-    final source = values.isEmpty ? fallback : values;
-    final deduped = _dedupeStrings(source);
-
-    if (deduped.length > maxItems) {
-      return deduped.take(maxItems).toList();
-    }
-    return deduped;
-  }
-
-  List<String> _splitUserSteps(String userAnswer) {
-    final arrow = String.fromCharCode(0x2192);
-    final normalized = userAnswer
-        .replaceAll(arrow, '|')
-        .replaceAll('->', '|')
-        .replaceAll('\n', '|');
-
-    return normalized
-        .split('|')
-        .map((step) => step.trim())
-        .where((step) => step.isNotEmpty)
-        .toList();
-  }
-
-  String _buildRagQuery({
-    required String scenario,
-    required String userAnswer,
-    required String correctAnswer,
-    required List<String> lawTopics,
-  }) {
     return [
-      scenario,
-      userAnswer,
-      correctAnswer,
-      lawTopics.join(', '),
-    ].where((part) => part.trim().isNotEmpty).join('\n');
-  }
-
-  String _contextBlock(RagResult result) {
-    return result.isRelevant
-        ? result.context
-        : '(Tidak ada referensi tambahan yang cukup relevan.)';
-  }
-
-  String _formatList(List<String> items) {
-    if (items.isEmpty) return '(Tidak ada)';
-    return items.map((item) => '- $item').join('\n');
-  }
-
-  String _formatNumberedList(List<String> items) {
-    if (items.isEmpty) return '(Tidak ada)';
-    return [
-      for (var i = 0; i < items.length; i++) '${i + 1}. ${items[i]}',
+      '$icon $subject ${evaluation.statusLabel} · Skor ${evaluation.score}/100',
+      '',
+      '## Alasan',
+      ...alasan.map((line) => '- $line'),
+      '',
+      '## Dasar Hukum',
+      ...dasarHukum,
+      '',
+      '## Saran',
+      ...saran.map((line) => '- $line'),
     ].join('\n');
   }
 
-  List<String> _dedupeStrings(List<String> values) {
-    final seen = <String>{};
-    final result = <String>[];
+  String _ragQuery(GeneratedCase generatedCase, Evaluation evaluation) {
+    return [
+      generatedCase.scenario,
+      generatedCase.blueprint.topik.join(' '),
+      evaluation.bestAnswer,
+      evaluation.correctSteps.join(' '),
+    ].where((part) => part.trim().isNotEmpty).join('\n');
+  }
 
-    for (final value in values) {
-      final key = _normalizeKey(value);
-      if (seen.add(key)) result.add(value);
+  Map<String, dynamic>? _decodeJsonObject(String text) {
+    final start = text.indexOf('{');
+    final end = text.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+    try {
+      final decoded = jsonDecode(text.substring(start, end + 1));
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
+    } catch (_) {
+      return null;
     }
-
-    return result;
   }
 
-  String _normalizeKey(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+  List<String> _stringList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (value is String && value.trim().isNotEmpty) return [value.trim()];
+    return const [];
   }
+
+  String _numbered(List<String> items) => [
+        for (var i = 0; i < items.length; i++) '${i + 1}. ${items[i]}',
+      ].join('\n');
+}
+
+class _Explanation {
+  final List<String> alasan;
+  final List<String> saran;
+
+  const _Explanation({required this.alasan, required this.saran});
 }

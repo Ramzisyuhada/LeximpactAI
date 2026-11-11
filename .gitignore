@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Rahasia lokal (API key untuk --dart-define-from-file)
+secrets.json
+
+# Konfigurasi lokal Claude Code
+.claude/

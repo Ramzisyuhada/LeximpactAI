@@ -1,0 +1,337 @@
+{
+  "catatan": "Blueprint kasus simulasi. Kunci jawaban, skor, dan pasal acuan ditentukan di sini (bukan oleh AI). Mistral hanya menulis ulang narasi skenario dengan mempertahankan 'fakta'.",
+  "kasus": [
+    {
+      "id": "L1-usia",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Batas usia dalam lowongan",
+      "topik": ["diskriminasi", "usia", "rekrutmen"],
+      "skenario": "PT Sinar Logistik membuka lowongan staf administrasi gudang dengan syarat 'usia maksimal 30 tahun'. Seorang pelamar berusia 45 tahun lolos semua tes kompetensi dengan nilai tertinggi, tetapi manajer gudang meminta HR menolaknya karena dianggap 'terlalu tua'.",
+      "fakta": ["lowongan mencantumkan batas usia yang tidak berkaitan dengan kebutuhan jabatan", "pelamar lolos tes kompetensi dengan nilai tertinggi", "atasan meminta pelamar ditolak karena usia"],
+      "pertanyaan": "Sebagai HR Manager, apa keputusan Anda terhadap proses rekrutmen ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 60, "penjelasan": "Menerima pelamar memang adil bagi kandidat, tetapi syarat usia diskriminatif di lowongan tetap berlaku dan akan merugikan pelamar berikutnya."},
+        {"teks": "Tolak", "skor": 0, "penjelasan": "Menolak karena usia padahal kompetensinya terbukti adalah diskriminasi dalam memperoleh pekerjaan."},
+        {"teks": "Revisi prosedur", "skor": 100, "penjelasan": "Hapus syarat usia yang tidak relevan, lalu putuskan berdasarkan hasil tes kompetensi. Ini memperbaiki akar masalah sekaligus memberi kesempatan yang sama."}
+      ],
+      "refs": ["uu13-2003-p5", "uu13-2003-p32"]
+    },
+    {
+      "id": "L1-difabel",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Pelamar penyandang disabilitas",
+      "topik": ["diskriminasi", "kondisi fisik", "rekrutmen"],
+      "skenario": "Seorang pelamar pengguna kursi roda melamar posisi analis data di PT Cakra Digital. Seleksi dilakukan objektif dan ia meraih peringkat pertama di tes teknis dan wawancara. Pekerjaannya sepenuhnya berbasis komputer, namun kepala divisi ragu karena 'takut merepotkan'.",
+      "fakta": ["seleksi sudah objektif dan terdokumentasi", "pelamar meraih peringkat pertama", "pekerjaan tidak terhambat kondisi fisiknya", "keraguan atasan hanya berdasarkan kondisi fisik"],
+      "pertanyaan": "Apa keputusan Anda terhadap pelamar ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 100, "penjelasan": "Prosedur sudah objektif dan pelamar terbaik. Kondisi fisik yang tidak menghambat pekerjaan bukan alasan sah untuk menolak; perusahaan cukup menyediakan akomodasi yang wajar."},
+        {"teks": "Tolak", "skor": 0, "penjelasan": "Menolak karena kondisi fisik merupakan diskriminasi dan bertentangan dengan asas penempatan yang obyektif dan adil."},
+        {"teks": "Revisi prosedur", "skor": 30, "penjelasan": "Prosedurnya sudah benar; mengulang proses hanya menunda keputusan dan berisiko menjadi diskriminasi terselubung."}
+      ],
+      "refs": ["uu13-2003-p5", "uu13-2003-p32", "uu13-2003-p35"]
+    },
+    {
+      "id": "L1-anak",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Pelamar berusia 16 tahun",
+      "topik": ["pekerja anak", "pekerjaan berbahaya", "rekrutmen"],
+      "skenario": "PT Kimia Prima kekurangan operator shift malam di area pencampuran bahan kimia. Seorang pelamar berusia 16 tahun membawa surat izin orang tua dan bersedia bekerja 8 jam per malam. Supervisor produksi mendesak HR segera menerimanya.",
+      "fakta": ["pelamar berusia 16 tahun", "pekerjaan di area bahan kimia berbahaya", "jam kerja malam 8 jam", "ada surat izin orang tua"],
+      "pertanyaan": "Apa keputusan Anda terhadap lamaran ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 0, "penjelasan": "Izin orang tua tidak menghapus larangan mempekerjakan anak, apalagi pada pekerjaan berbahaya di malam hari."},
+        {"teks": "Tolak", "skor": 100, "penjelasan": "Pelamar masih anak dan pekerjaannya termasuk pekerjaan yang membahayakan keselamatan dan kesehatan anak, sehingga wajib ditolak."},
+        {"teks": "Revisi prosedur", "skor": 40, "penjelasan": "Memperketat verifikasi usia memang perlu, tetapi lamaran ini sendiri tetap harus ditolak."}
+      ],
+      "refs": ["uu13-2003-p68", "uu13-2003-p69", "uu13-2003-p74", "kepmen235-2003-p2", "kepmen235-2003-lampiran1"]
+    },
+    {
+      "id": "L1-tka",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Tenaga kerja asing tanpa pengesahan",
+      "topik": ["tenaga kerja asing", "izin", "rekrutmen"],
+      "skenario": "Direktur PT Nusantara Teknik ingin seorang insinyur asing langsung mulai bekerja minggu depan sebagai kepala proyek. RPTKA belum diajukan, dan direktur juga ingin insinyur tersebut sekaligus memegang urusan personalia.",
+      "fakta": ["calon pekerja adalah warga negara asing", "RPTKA belum diajukan atau disahkan", "direncanakan merangkap urusan personalia"],
+      "pertanyaan": "Apa keputusan Anda terhadap rencana penempatan ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 0, "penjelasan": "Mempekerjakan TKA tanpa pengesahan RPTKA dan menempatkannya di jabatan personalia melanggar ketentuan penggunaan TKA."},
+        {"teks": "Tolak", "skor": 40, "penjelasan": "Penempatan saat ini memang tidak boleh, tetapi kebutuhan tenaga ahli masih bisa dipenuhi secara legal setelah perizinan lengkap."},
+        {"teks": "Revisi prosedur", "skor": 100, "penjelasan": "Tunda mulai kerja, ajukan pengesahan RPTKA, dan hapus tugas personalia dari jabatannya. Kebutuhan bisnis terpenuhi tanpa melanggar hukum."}
+      ],
+      "refs": ["uu13-2003-p42"]
+    },
+    {
+      "id": "L1-pkwt",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Kontrak untuk pekerjaan tetap",
+      "topik": ["pkwt", "kontrak kerja", "masa percobaan"],
+      "skenario": "PT Rasa Mandiri merekrut kasir tetap untuk tokonya dengan kontrak PKWT 1 tahun yang diperpanjang terus-menerus, ditambah masa percobaan 3 bulan di awal kontrak dengan upah di bawah UMK.",
+      "fakta": ["posisi kasir bersifat tetap dan terus-menerus", "dipakai kontrak PKWT", "PKWT mensyaratkan masa percobaan", "upah masa percobaan di bawah UMK"],
+      "pertanyaan": "Bagaimana Anda menyikapi draf kontrak kerja ini sebelum ditandatangani kandidat?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 0, "penjelasan": "Kontrak ini melanggar beberapa ketentuan sekaligus: PKWT untuk pekerjaan tetap, masa percobaan dalam PKWT, dan upah di bawah minimum."},
+        {"teks": "Tolak", "skor": 30, "penjelasan": "Menolak draf tanpa memberi solusi membuat rekrutmen terhenti; masalahnya ada di bentuk kontrak, bukan di kandidat."},
+        {"teks": "Revisi prosedur", "skor": 100, "penjelasan": "Ubah menjadi PKWTT (pekerja tetap). Masa percobaan maksimal 3 bulan hanya boleh di PKWTT dan upahnya tidak boleh di bawah upah minimum."}
+      ],
+      "refs": ["uu13-2003-p58", "uu13-2003-p59", "uu13-2003-p60", "uu13-2003-p88", "uu13-2003-p90"]
+    },
+    {
+      "id": "L1-lowongan",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Lowongan tidak dilaporkan",
+      "topik": ["wajib lapor lowongan", "rekrutmen"],
+      "skenario": "PT Bumi Agro membutuhkan 50 buruh panen baru. Manajer kebun ingin merekrut lewat kenalan warga setempat saja tanpa mengumumkan lowongan dan tanpa melapor ke dinas tenaga kerja agar cepat.",
+      "fakta": ["ada lowongan 50 posisi", "rekrutmen hanya lewat kenalan", "lowongan tidak dilaporkan ke instansi ketenagakerjaan"],
+      "pertanyaan": "Apa keputusan Anda terhadap rencana rekrutmen ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 0, "penjelasan": "Rekrutmen tertutup tanpa laporan lowongan melanggar kewajiban lapor dan asas penempatan yang terbuka."},
+        {"teks": "Tolak", "skor": 40, "penjelasan": "Rencananya memang bermasalah, tetapi kebutuhan 50 pekerja tetap harus dipenuhi dengan cara yang benar."},
+        {"teks": "Revisi prosedur", "skor": 100, "penjelasan": "Laporkan lowongan secara tertulis ke instansi ketenagakerjaan dan buka rekrutmen secara terbuka dan obyektif; warga setempat tetap boleh melamar."}
+      ],
+      "refs": ["keppres4-1980-p2", "uu13-2003-p32"]
+    },
+    {
+      "id": "L1-outsourcing",
+      "level": 1,
+      "tahap": "pre",
+      "judul": "Alih daya tanpa perjanjian tertulis",
+      "topik": ["outsourcing", "alih daya", "perjanjian kerja"],
+      "skenario": "PT Garmen Jaya ingin memakai 100 pekerja dari perusahaan penyedia jasa untuk mengisi lini jahit utama. Belum ada perjanjian tertulis dengan penyedia jasa, dan tidak jelas siapa yang menanggung upah serta BPJS pekerja.",
+      "fakta": ["pekerja alih daya akan mengisi lini produksi utama", "belum ada perjanjian tertulis dengan penyedia jasa", "tanggung jawab upah dan jaminan sosial tidak jelas"],
+      "pertanyaan": "Apa keputusan Anda terhadap rencana alih daya ini?",
+      "pilihan": [
+        {"teks": "Terima", "skor": 0, "penjelasan": "Tanpa perjanjian tertulis, perlindungan upah dan jaminan sosial pekerja tidak terjamin, dan perusahaan berisiko dianggap sebagai pemberi kerja langsung."},
+        {"teks": "Tolak", "skor": 40, "penjelasan": "Alih daya tidak otomatis dilarang; masalah utamanya adalah dasar hukum dan perlindungan pekerja yang belum ada."},
+        {"teks": "Revisi prosedur", "skor": 100, "penjelasan": "Buat perjanjian tertulis dengan penyedia jasa berbadan hukum yang menetapkan tanggung jawab upah, BPJS, dan syarat kerja, serta kaji apakah pekerjaan itu boleh dialihdayakan."}
+      ],
+      "refs": ["uu13-2003-p64", "uu13-2003-p65", "uu13-2003-p66", "uu40-2004-p13"]
+    },
+
+    {
+      "id": "L2-lembur-tanpa-bayar",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Lembur tanpa kompensasi",
+      "topik": ["lembur", "upah lembur", "waktu kerja"],
+      "skenario": "Menjelang akhir tahun, PT Sentosa Elektronik mewajibkan operator bekerja 4 jam tambahan setiap hari selama sebulan tanpa upah lembur dengan alasan 'loyalitas'. Beberapa pekerja menolak dan diancam tidak diperpanjang kontraknya.",
+      "fakta": ["kerja tambahan 4 jam per hari selama sebulan", "tidak ada upah lembur", "tidak ada persetujuan pekerja", "pekerja yang menolak diancam"],
+      "pertanyaan": "Kebijakan apa yang Anda ambil sebagai HR Manager?",
+      "pilihan": [
+        {"teks": "Hentikan lembur paksa, minta persetujuan tertulis, dan bayar upah lembur sesuai rumus", "skor": 100, "penjelasan": "Lembur wajib disetujui pekerja, dibatasi jamnya, dan wajib dibayar. Ancaman terhadap pekerja yang menolak juga harus dihentikan."},
+        {"teks": "Lanjutkan lembur tetapi beri bonus akhir tahun sebagai pengganti", "skor": 30, "penjelasan": "Bonus bukan pengganti upah lembur yang dihitung per jam, dan lembur tanpa persetujuan tetap melanggar."},
+        {"teks": "Pertahankan kebijakan demi target produksi", "skor": 0, "penjelasan": "Mempekerjakan melebihi waktu kerja tanpa persetujuan dan tanpa upah lembur melanggar ketentuan waktu kerja dan lembur."}
+      ],
+      "refs": ["uu13-2003-p77", "uu13-2003-p78"]
+    },
+    {
+      "id": "L2-apd",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Pekerja menolak kerja tanpa APD",
+      "topik": ["keselamatan kerja", "apd", "k3"],
+      "skenario": "Di proyek konstruksi PT Bangun Kokoh, stok helm dan sabuk pengaman habis. Mandor tetap memerintahkan pekerja naik ke lantai 8. Tiga pekerja menolak, lalu mandor mengusulkan upah harian mereka dipotong.",
+      "fakta": ["APD wajib (helm, sabuk pengaman) tidak tersedia", "pekerjaan di ketinggian", "pekerja menolak karena tidak aman", "ada usulan potong upah"],
+      "pertanyaan": "Kebijakan apa yang Anda ambil?",
+      "pilihan": [
+        {"teks": "Potong upah pekerja yang menolak agar disiplin", "skor": 0, "penjelasan": "Pekerja berhak menolak pekerjaan yang syarat K3-nya diragukan. Menghukum mereka melanggar hak atas keselamatan kerja."},
+        {"teks": "Hentikan pekerjaan di ketinggian, sediakan APD gratis, lalu lanjutkan sesuai prosedur K3", "skor": 100, "penjelasan": "Pengurus wajib menyediakan APD secara cuma-cuma, dan pekerjaan berisiko harus dihentikan sampai syarat keselamatan terpenuhi."},
+        {"teks": "Izinkan pekerja yang mau saja naik tanpa APD dengan surat pernyataan", "skor": 10, "penjelasan": "Surat pernyataan tidak menghapus kewajiban perusahaan atas K3; risiko kecelakaan dan tanggung jawab hukum tetap ada pada perusahaan."}
+      ],
+      "refs": ["uu1-1970-p12", "uu1-1970-p14", "uu13-2003-p86", "uu13-2003-p87"]
+    },
+    {
+      "id": "L2-ump",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Upah di bawah upah minimum",
+      "topik": ["upah", "upah minimum", "pengupahan"],
+      "skenario": "Untuk menekan biaya, direksi PT Mitra Kemas mengusulkan upah karyawan baru dibayar 15% di bawah UMK selama setahun dengan alasan 'masih belajar'. Serikat pekerja mengajukan keberatan tertulis.",
+      "fakta": ["upah diusulkan 15% di bawah UMK", "berlaku untuk karyawan baru selama setahun", "serikat pekerja keberatan secara tertulis"],
+      "pertanyaan": "Kebijakan apa yang Anda rekomendasikan ke direksi?",
+      "pilihan": [
+        {"teks": "Tolak usulan dan bayar minimal UMK, efisiensi dicari dari pos biaya lain", "skor": 100, "penjelasan": "Pengusaha dilarang membayar upah lebih rendah dari upah minimum, termasuk untuk karyawan baru atau masa percobaan."},
+        {"teks": "Terapkan usulan asalkan karyawan menandatangani persetujuan", "skor": 0, "penjelasan": "Kesepakatan upah di bawah minimum tidak sah; persetujuan pekerja tidak menghapus larangan tersebut."},
+        {"teks": "Terapkan hanya selama 3 bulan pertama sebagai masa percobaan", "skor": 10, "penjelasan": "Selama masa percobaan pun upah tidak boleh di bawah upah minimum."}
+      ],
+      "refs": ["uu13-2003-p88", "uu13-2003-p90", "uu13-2003-p60", "kepmen49-2004-p2"]
+    },
+    {
+      "id": "L2-melahirkan",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Cuti melahirkan dipersingkat",
+      "topik": ["cuti melahirkan", "hamil", "perempuan"],
+      "skenario": "Seorang staf keuangan PT Arta Niaga yang hamil 8 bulan mengajukan cuti melahirkan. Atasannya hanya mau memberi cuti 1 bulan tanpa upah karena sedang musim tutup buku, dan mengancam tidak memperpanjang kontrak jika ia menolak.",
+      "fakta": ["pekerja hamil 8 bulan", "cuti hanya diberi 1 bulan", "cuti tanpa upah", "ada ancaman tidak diperpanjang kontrak"],
+      "pertanyaan": "Kebijakan apa yang Anda ambil?",
+      "pilihan": [
+        {"teks": "Berikan cuti 1,5 bulan sebelum dan 1,5 bulan sesudah melahirkan dengan upah penuh", "skor": 100, "penjelasan": "Hak istirahat melahirkan total 3 bulan dengan upah penuh dijamin undang-undang; pekerjaan tutup buku diatur ulang lewat pembagian tugas."},
+        {"teks": "Berikan cuti 1 bulan dengan upah penuh sebagai jalan tengah", "skor": 20, "penjelasan": "Tetap melanggar karena durasi cuti di bawah ketentuan minimum."},
+        {"teks": "Ikuti keputusan atasan karena kebutuhan operasional", "skor": 0, "penjelasan": "Mengurangi cuti, tidak membayar upah, dan mengancam karena kehamilan melanggar hak pekerja perempuan dan larangan PHK karena hamil."}
+      ],
+      "refs": ["uu13-2003-p82", "uu13-2003-p84", "uu13-2003-p153", "uu13-2003-p6"]
+    },
+    {
+      "id": "L2-serikat",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Menghalangi serikat pekerja",
+      "topik": ["serikat pekerja", "union busting", "mutasi"],
+      "skenario": "Para pekerja PT Delta Furnitur sedang membentuk serikat pekerja. Manajer pabrik meminta HR memutasi tiga penggagasnya ke cabang luar pulau dan menurunkan jabatannya agar pembentukan serikat batal.",
+      "fakta": ["pekerja sedang membentuk serikat", "ada rencana mutasi dan penurunan jabatan penggagas", "tujuannya menggagalkan pembentukan serikat"],
+      "pertanyaan": "Kebijakan apa yang Anda ambil?",
+      "pilihan": [
+        {"teks": "Jalankan mutasi dengan alasan kebutuhan cabang", "skor": 0, "penjelasan": "Mutasi dan penurunan jabatan untuk menghalangi serikat adalah tindak pidana anti-serikat."},
+        {"teks": "Tolak rencana mutasi dan fasilitasi dialog dengan pengurus serikat", "skor": 100, "penjelasan": "Pekerja berhak membentuk serikat. Perusahaan sebaiknya membangun hubungan industrial yang sehat melalui dialog."},
+        {"teks": "Tunda mutasi sampai serikat terbentuk, lalu evaluasi kinerja penggagasnya", "skor": 15, "penjelasan": "Masih berpotensi menjadi pembalasan terselubung terhadap aktivitas serikat dan berisiko pidana."}
+      ],
+      "refs": ["uu21-2000-p28", "uu21-2000-p43", "uu13-2003-p104"]
+    },
+    {
+      "id": "L2-sengketa",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Sengketa tunjangan",
+      "topik": ["perselisihan", "bipartit", "hubungan industrial"],
+      "skenario": "Pekerja PT Samudra Pangan menuntut tunjangan transport yang tercantum di perjanjian kerja bersama tetapi tidak dibayar selama 3 bulan. Mereka mengancam mogok, sementara direksi ingin langsung melaporkan pekerja ke polisi.",
+      "fakta": ["tunjangan tercantum di perjanjian kerja bersama", "tidak dibayar selama 3 bulan", "pekerja mengancam mogok", "direksi ingin melapor ke polisi"],
+      "pertanyaan": "Langkah apa yang Anda ambil?",
+      "pilihan": [
+        {"teks": "Ajak serikat berunding bipartit, akui kewajiban, dan sepakati jadwal pembayaran", "skor": 100, "penjelasan": "Perselisihan hak wajib lebih dulu diselesaikan secara bipartit; perusahaan juga terikat isi perjanjian kerja bersama."},
+        {"teks": "Laporkan pekerja ke polisi karena mengancam mogok", "skor": 0, "penjelasan": "Perselisihan hubungan industrial bukan ranah pidana; jalur yang benar adalah bipartit, lalu mediasi/PHI."},
+        {"teks": "Langsung ajukan ke mediator Disnaker tanpa berunding", "skor": 40, "penjelasan": "Pencatatan ke Disnaker harus melampirkan bukti upaya bipartit yang gagal; tahap bipartit tidak boleh dilewati."}
+      ],
+      "refs": ["uu2-2004-p3", "uu2-2004-p4", "uu13-2003-p136"]
+    },
+    {
+      "id": "L2-bpjs",
+      "level": 2,
+      "tahap": "during",
+      "judul": "Pekerja tidak didaftarkan jaminan sosial",
+      "topik": ["jaminan sosial", "bpjs", "kecelakaan kerja"],
+      "skenario": "Seorang pekerja gudang PT Lancar Distribusi patah tangan saat bekerja. Ternyata ia dan 40 rekannya belum didaftarkan ke BPJS Ketenagakerjaan karena manajemen ingin menghemat iuran.",
+      "fakta": ["terjadi kecelakaan kerja", "41 pekerja belum didaftarkan jaminan sosial", "alasannya menghemat iuran"],
+      "pertanyaan": "Kebijakan apa yang Anda ambil?",
+      "pilihan": [
+        {"teks": "Tanggung biaya pengobatan dan hak korban, lalu segera daftarkan semua pekerja ke BPJS", "skor": 100, "penjelasan": "Pemberi kerja wajib mendaftarkan pekerja; selama belum terdaftar, perusahaan menanggung sendiri hak korban kecelakaan kerja."},
+        {"teks": "Daftarkan hanya korban ke BPJS agar klaim bisa diajukan", "skor": 20, "penjelasan": "Pekerja lain tetap tidak terlindungi, dan pendaftaran setelah kecelakaan tidak menghapus tanggung jawab perusahaan."},
+        {"teks": "Minta korban menanggung biaya sendiri karena kelalaiannya", "skor": 0, "penjelasan": "Kecelakaan kerja adalah risiko yang dilindungi jaminan sosial; perusahaan yang tidak mendaftarkan pekerja menanggung kewajibannya."}
+      ],
+      "refs": ["uu40-2004-p13", "uu3-1992-p3", "uu3-1992-p4", "uu13-2003-p86", "uu13-2003-p87"]
+    },
+
+    {
+      "id": "L3-efisiensi",
+      "level": 3,
+      "tahap": "post",
+      "judul": "PHK karena efisiensi",
+      "topik": ["phk efisiensi", "bipartit", "pesangon"],
+      "skenario": "PT Maju Tekstil mengganti mesin tenun lama dengan mesin otomatis sehingga 60 operator tidak lagi dibutuhkan. Perusahaan tidak merugi, tetapi direksi ingin melakukan efisiensi tenaga kerja bulan depan.",
+      "fakta": ["60 operator terdampak", "perusahaan tidak merugi", "alasan PHK adalah efisiensi"],
+      "pertanyaan": "Susun langkah PHK yang sah sesuai regulasi.",
+      "langkah": [
+        "Audit dan dokumentasikan alasan efisiensi beserta bukti kondisi perusahaan",
+        "Upayakan alternatif agar PHK tidak terjadi (pelatihan ulang, mutasi, pengurangan lembur)",
+        "Beritahukan maksud PHK dan lakukan perundingan bipartit dengan pekerja/serikat pekerja",
+        "Jika bipartit gagal, catatkan perselisihan ke Disnaker untuk mediasi/PHI",
+        "Bayar pesangon, uang penghargaan masa kerja, dan uang penggantian hak"
+      ],
+      "refs": ["uu13-2003-p151", "uu13-2003-p164", "uu13-2003-p156", "uu2-2004-p3", "uu2-2004-p4"]
+    },
+    {
+      "id": "L3-sp",
+      "level": 3,
+      "tahap": "post",
+      "judul": "PHK karena pelanggaran berulang",
+      "topik": ["surat peringatan", "pelanggaran", "phk"],
+      "skenario": "Seorang staf penjualan PT Prima Retail berulang kali terlambat dan melanggar target laporan yang diatur dalam peraturan perusahaan. Atasannya ingin langsung memecatnya hari ini.",
+      "fakta": ["pelanggaran berulang terhadap peraturan perusahaan", "belum pernah diberi surat peringatan", "atasan ingin PHK langsung"],
+      "pertanyaan": "Susun langkah PHK yang sah sesuai regulasi.",
+      "langkah": [
+        "Kumpulkan bukti pelanggaran dan cocokkan dengan peraturan perusahaan",
+        "Berikan surat peringatan pertama, kedua, dan ketiga secara berturut-turut",
+        "Beritahukan maksud PHK dan lakukan perundingan bipartit dengan pekerja",
+        "Jika bipartit gagal, catatkan perselisihan ke Disnaker untuk mediasi/PHI",
+        "Bayar hak pekerja sesuai ketentuan (pesangon, penghargaan masa kerja, penggantian hak)"
+      ],
+      "refs": ["uu13-2003-p161", "uu13-2003-p151", "uu13-2003-p156", "uu2-2004-p3"]
+    },
+    {
+      "id": "L3-mangkir",
+      "level": 3,
+      "tahap": "post",
+      "judul": "Pekerja mangkir",
+      "topik": ["mangkir", "mengundurkan diri", "phk"],
+      "skenario": "Seorang teknisi PT Sumber Energi tidak masuk kerja 7 hari kerja berturut-turut tanpa kabar dan tanpa surat keterangan. Atasannya ingin langsung menganggapnya keluar.",
+      "fakta": ["mangkir 7 hari kerja berturut-turut", "tidak ada keterangan tertulis", "belum ada pemanggilan"],
+      "pertanyaan": "Susun langkah penyelesaian yang sah sesuai regulasi.",
+      "langkah": [
+        "Catat absensi dan pastikan tidak ada keterangan tertulis dengan bukti sah",
+        "Kirim surat panggilan pertama secara patut dan tertulis",
+        "Kirim surat panggilan kedua secara patut dan tertulis",
+        "Tetapkan PHK karena dikualifikasikan mengundurkan diri",
+        "Bayar uang penggantian hak dan uang pisah"
+      ],
+      "refs": ["uu13-2003-p168", "uu13-2003-p156"]
+    },
+    {
+      "id": "L3-resign",
+      "level": 3,
+      "tahap": "post",
+      "judul": "Pengunduran diri",
+      "topik": ["pengunduran diri", "resign", "hak pekerja"],
+      "skenario": "Seorang desainer senior PT Kreasi Media ingin mengundurkan diri karena pindah kota. Ia memberi tahu atasannya secara lisan hari ini dan ingin berhenti minggu depan.",
+      "fakta": ["pekerja ingin mengundurkan diri atas kemauan sendiri", "baru memberi tahu secara lisan", "ingin berhenti minggu depan"],
+      "pertanyaan": "Susun langkah pengunduran diri yang sesuai regulasi.",
+      "langkah": [
+        "Minta pekerja mengajukan permohonan pengunduran diri secara tertulis",
+        "Pastikan pengajuan paling lambat 30 hari sebelum tanggal berhenti dan cek ikatan dinas",
+        "Pekerja tetap melaksanakan kewajiban dan serah terima pekerjaan sampai tanggal berhenti",
+        "Bayar uang penggantian hak dan uang pisah sesuai peraturan perusahaan"
+      ],
+      "refs": ["uu13-2003-p162", "uu13-2003-p156"]
+    },
+    {
+      "id": "L3-serikat",
+      "level": 3,
+      "tahap": "post",
+      "judul": "PHK pengurus serikat",
+      "topik": ["serikat pekerja", "larangan phk", "phk"],
+      "skenario": "Direksi PT Global Plastik ingin mem-PHK ketua serikat pekerja dengan alasan 'restrukturisasi' setelah ia memimpin tuntutan kenaikan upah. Anda diminta menyusun prosesnya.",
+      "fakta": ["target PHK adalah ketua serikat pekerja", "alasan resmi 'restrukturisasi'", "terjadi setelah tuntutan kenaikan upah"],
+      "pertanyaan": "Susun langkah yang tepat secara hukum.",
+      "langkah": [
+        "Uji alasan PHK: apakah terkait aktivitas serikat pekerja (alasan yang dilarang)",
+        "Hentikan rencana PHK jika alasannya terbukti terkait aktivitas serikat",
+        "Bahas tuntutan kenaikan upah melalui perundingan bipartit dengan serikat",
+        "Jika restrukturisasi benar-benar diperlukan, terapkan kriteria objektif yang berlaku untuk semua pekerja",
+        "Jika tetap terjadi perselisihan, catatkan ke Disnaker untuk mediasi/PHI"
+      ],
+      "refs": ["uu13-2003-p153", "uu21-2000-p28", "uu21-2000-p43", "uu2-2004-p3", "uu2-2004-p4"]
+    },
+    {
+      "id": "L3-pensiun",
+      "level": 3,
+      "tahap": "post",
+      "judul": "PHK karena pensiun",
+      "topik": ["pensiun", "dana pensiun", "pesangon"],
+      "skenario": "Seorang supervisor PT Andalan Farma memasuki usia pensiun sesuai peraturan perusahaan bulan depan. Perusahaan tidak pernah mengikutkannya dalam program dana pensiun.",
+      "fakta": ["pekerja memasuki usia pensiun", "tidak diikutkan program dana pensiun"],
+      "pertanyaan": "Susun langkah penyelesaian yang sesuai regulasi.",
+      "langkah": [
+        "Verifikasi usia pensiun berdasarkan peraturan perusahaan/PKB dan data pekerja",
+        "Beritahukan rencana berakhirnya hubungan kerja karena pensiun secara tertulis",
+        "Hitung hak pensiun karena pekerja tidak diikutkan program dana pensiun",
+        "Bayar pesangon, uang penghargaan masa kerja, dan uang penggantian hak"
+      ],
+      "refs": ["uu13-2003-p167", "uu13-2003-p156", "uu11-1992-p2"]
+    }
+  ]
+}

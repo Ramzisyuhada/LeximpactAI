@@ -4,10 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:leximpactai/domain/model/simulation_case.dart';
+import 'package:leximpactai/domain/model/generated_case.dart';
 import 'package:leximpactai/domain/presentation/pages/feedback_page.dart';
 import 'package:leximpactai/domain/service/simulation_ai_service.dart';
-import 'package:leximpactai/domain/utils/case_parser.dart';
 import 'package:leximpactai/core/color/app_colors.dart';
 
 class SimulationPage extends StatefulWidget {
@@ -18,12 +17,18 @@ class SimulationPage extends StatefulWidget {
 }
 
 class _SimulationPageState extends State<SimulationPage> {
-  SimulationCase? simCase;
+  final SimulationAIService ai = SimulationAIService();
+
+  GeneratedCase? simCase;
   bool isLoading = true;
+  String? loadError;
   String? selectedAnswer;
   int level = 1;
 
   final int maxLevel = 3;
+
+  /// Skor tiap level yang sudah diselesaikan (0-100).
+  final List<int> scores = [];
 
   /// 🔥 LEVEL 3
   List<String> steps = [];
@@ -34,53 +39,39 @@ class _SimulationPageState extends State<SimulationPage> {
     loadCase();
   }
 
-  /// 🔥 LOAD CASE
-  void loadCase() async {
+  /// 🔥 LOAD CASE (blueprint lokal + narasi dari Gemini)
+  Future<void> loadCase() async {
+    setState(() {
+      isLoading = true;
+      loadError = null;
+    });
+
     try {
-      final ai = SimulationAIService();
-      String result;
-
-      if (level == 1) {
-        result = await ai.generateCase();
-        print(result);
-      } else if (level == 2) {
-        result = await ai.generateCaseLevel2();
-                print(result);
-
-      } else {
-        result = await ai.generateCaseLevel3();
-        print(result);
-      }
-
-      final parsed = CaseParser.parse(result);
+      final generated = await ai.generateCase(level);
+      if (!mounted) return;
 
       setState(() {
-        simCase = parsed;
-
-        /// 🔥 FIX LEVEL 3 (FILTER + SHUFFLE)
-        if (level == 3) {
-          steps = parsed.options
-              .where((e) => e.length < 120)
-              .toList();
-
-          steps.shuffle();
-        }
-
+        simCase = generated;
+        steps = generated.isStepCase ? List.of(generated.options) : [];
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        loadError = "Gagal memuat kasus: $e";
+      });
     }
   }
 
   String getLevelTitle() {
     switch (level) {
       case 1:
-        return "Recruitment";
+        return "Pre-Employment • Rekrutmen";
       case 2:
-        return "PHK";
+        return "During Employment";
       case 3:
-        return "Strategic HR 🔥";
+        return "Post-Employment • PHK 🔥";
       default:
         return "";
     }
@@ -186,6 +177,18 @@ class _SimulationPageState extends State<SimulationPage> {
       );
     }
 
+    if (loadError != null || simCase == null) {
+      return Column(
+        children: [
+          Text(
+            loadError ?? "Kasus tidak tersedia.",
+            style: GoogleFonts.poppins(color: AppColors.mutedText),
+          ),
+          TextButton(onPressed: loadCase, child: const Text("Coba lagi")),
+        ],
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -196,7 +199,8 @@ class _SimulationPageState extends State<SimulationPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: MarkdownBody(
-        data: simCase?.scenario ?? "",
+        data: "**${simCase!.title}**\n\n${simCase!.scenario}"
+            "\n\n_${simCase!.question}_",
         styleSheet:  MarkdownStyleSheet(
           p: TextStyle(
             color: AppColors.text,
@@ -385,19 +389,24 @@ class _SimulationPageState extends State<SimulationPage> {
     );
   }
 
+  int _averageScore() {
+    if (scores.isEmpty) return 0;
+    return (scores.reduce((a, b) => a + b) / scores.length).round();
+  }
+
   /// 🚀 NEXT BUTTON (FIX TOTAL)
   Widget _buildNextButton() {
     final enabled =
-        (level == 3 && steps.isNotEmpty) ||
-        (level != 3 && selectedAnswer != null);
+        !isLoading &&
+        simCase != null &&
+        ((level == 3 && steps.isNotEmpty) ||
+            (level != 3 && selectedAnswer != null));
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: enabled
             ? () async {
-                final ai = SimulationAIService();
-
                 showDialog(
                   context: context,
                   barrierDismissible: false,
@@ -405,29 +414,36 @@ class _SimulationPageState extends State<SimulationPage> {
                       const Center(child: CircularProgressIndicator()),
                 );
 
-                final result = level == 3
-                    ? await ai.analyzeLevel3(
-                        scenario: simCase!.scenario,
-                        userAnswer: steps.join(" → "),
-                      )
-                    : await ai.analyze(
-                        scenario: simCase!.scenario,
-                        userAnswer: selectedAnswer!,
-                      );
+                final SimulationFeedback feedback;
+                try {
+                  feedback = level == 3
+                      ? await ai.analyze(simCase!, steps: steps)
+                      : await ai.analyze(simCase!, answer: selectedAnswer!);
+                } catch (e) {
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Analisis gagal: $e")),
+                  );
+                  return;
+                }
 
+                if (!mounted) return;
                 Navigator.pop(context);
+                scores.add(feedback.evaluation.score);
 
                 final goNext = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => AIFeedbackPage(
                       answer: level == 3
-                          ? "Strategi disusun"
+                          ? steps.join(" → ")
                           : selectedAnswer!,
-                      aiResult: result,
+                      aiResult: feedback.markdown,
                     ),
                   ),
                 );
+                if (!mounted) return;
 
                 /// 🔥 FIX LOOP + FINAL NAVIGATION
                 if (goNext == true || goNext == null) {
@@ -435,7 +451,6 @@ class _SimulationPageState extends State<SimulationPage> {
                     setState(() {
                       level++;
                       selectedAnswer = null;
-                      isLoading = true;
                     });
                     loadCase();
                   } else {
@@ -535,7 +550,9 @@ class _SimulationPageState extends State<SimulationPage> {
 
                   /// 📄 DESC
                   Text(
-                    "Kamu berhasil menyelesaikan semua level simulasi HR.\n\nKeputusanmu telah dianalisis oleh AI.",
+                    "Kamu berhasil menyelesaikan semua level simulasi HR.\n\n"
+                    "Skor rata-rata: ${_averageScore()}/100\n"
+                    "(${scores.join(' • ')})",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       color: AppColors.mutedText,
@@ -560,7 +577,7 @@ class _SimulationPageState extends State<SimulationPage> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: LinearProgressIndicator(
-                          value: 1,
+                          value: _averageScore() / 100,
                           minHeight: 8,
                           backgroundColor: AppColors.border,
                           valueColor: const AlwaysStoppedAnimation(
