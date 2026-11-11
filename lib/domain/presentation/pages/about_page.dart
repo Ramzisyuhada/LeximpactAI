@@ -31,6 +31,36 @@ class AboutPage extends StatelessWidget {
             const SizedBox(height: 24),
             _buildFeatureCard(),
             const SizedBox(height: 24),
+            _buildTeamCard(
+              icon: "🎓",
+              title: "Tim Peneliti",
+              members: const [
+                _Member(
+                  "Rahman Hasim, S.IP., M.Si.",
+                  "Prodi Administrasi Negara Universitas Terbuka",
+                ),
+                _Member(
+                  "Gunawan Wiradharma, S.Pd., S.I.Kom., M.Si., M.Hum.",
+                  "Prodi Ilmu Komunikasi FHISIP Universitas Terbuka",
+                ),
+                _Member(
+                  "Mario Aditya Prasetyo, S.Pd., S.I.Kom.",
+                  "Pascasarjana Ilmu Komunikasi FISIP Universitas Indonesia",
+                ),
+              ],
+            ).animate().fadeIn(delay: 500.ms),
+            const SizedBox(height: 24),
+            _buildTeamCard(
+              icon: "💻",
+              title: "Tim Pengembang",
+              members: const [
+                _Member("Zaenab Diah Febriani"),
+                _Member("Eriel Dantes"),
+                _Member("Galih Ashari R."),
+                _Member("Ramzi Syuhada"),
+              ],
+            ).animate().fadeIn(delay: 550.ms),
+            const SizedBox(height: 24),
             _buildInfoCard(),
             const SizedBox(height: 24),
             _buildCTA(context),
@@ -181,11 +211,82 @@ class AboutPage extends StatelessWidget {
       child: Column(
         children: [
           _infoRow("Versi", "1.0.0"),
-          _infoRow("Developer", "Ramzi Syuhada"),
           _infoRow("Platform", "Flutter"),
         ],
       ),
-    ).animate().fadeIn(delay: 500.ms);
+    ).animate().fadeIn(delay: 600.ms);
+  }
+
+  /// 👥 TEAM
+  Widget _buildTeamCard({
+    required String icon,
+    required String title,
+    required List<_Member> members,
+  }) {
+    return _glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$icon $title",
+              style: GoogleFonts.poppins(
+                color: AppColors.text,
+                fontWeight: FontWeight.bold,
+              )),
+          const SizedBox(height: 10),
+          for (var i = 0; i < members.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      "${i + 1}",
+                      style: GoogleFonts.poppins(
+                        color: AppColors.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          members[i].name,
+                          style: GoogleFonts.poppins(
+                            color: AppColors.text,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (members[i].affiliation != null)
+                          Text(
+                            members[i].affiliation!,
+                            style: GoogleFonts.poppins(
+                              color: AppColors.mutedText,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _infoRow(String title, String value) {
@@ -234,4 +335,12 @@ class AboutPage extends StatelessWidget {
       child: child,
     );
   }
+}
+
+/// Anggota tim yang ditampilkan di halaman Tentang.
+class _Member {
+  final String name;
+  final String? affiliation;
+
+  const _Member(this.name, [this.affiliation]);
 }

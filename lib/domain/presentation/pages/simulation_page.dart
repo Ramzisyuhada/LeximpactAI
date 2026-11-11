@@ -89,26 +89,33 @@ class _SimulationPageState extends State<SimulationPage> {
           child: Column(
             children: [
               _buildHeader(),
-              const SizedBox(height: 20),
-              _buildProgress(progress),
-              const SizedBox(height: 20),
-              _buildScenarioCard(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               /// 🎮 CONTENT (SCROLLABLE)
+              /// Kartu kasus ikut digulir bersama pilihan agar cerita yang
+              /// panjang tidak menutupi tombol pilihan di layar kecil.
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  child: isLoading
-                      ? const SizedBox.shrink()
-                      : (level == 3
-                          ? _buildReorderableSteps()
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: (simCase?.options ?? [])
-                                  .map((e) => _buildOption(e))
-                                  .toList(),
-                            )),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildProgress(progress),
+                      const SizedBox(height: 20),
+                      _buildScenarioCard(),
+                      const SizedBox(height: 24),
+                      if (!isLoading && loadError == null)
+                        level == 3
+                            ? _buildReorderableSteps()
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: (simCase?.options ?? [])
+                                    .map((e) => _buildOption(e))
+                                    .toList(),
+                              ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
 
